@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { SocketContext } from '../contexts/SocketContext';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useWorkspaceStore } from '../store/workspaceStore';
 import { Server, Play, Eye, LogOut, Plus, Trash2, X } from 'lucide-react';
 
 export const Dashboard = () => {
@@ -13,6 +14,7 @@ export const Dashboard = () => {
   });
   const { socket } = useContext(SocketContext);
   const { user, logout } = useContext(AuthContext);
+  const { tabs, setActiveTab } = useWorkspaceStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,6 +23,7 @@ export const Dashboard = () => {
       socket.on('active_sessions_update', (sessions: any[]) => {
         setActiveSessions(sessions);
       });
+      socket.emit('get_active_sessions');
     }
     return () => {
       if (socket) socket.off('active_sessions_update');
@@ -116,16 +119,24 @@ export const Dashboard = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
             {hosts.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Nenhum servidor cadastrado.</p> : null}
-            {hosts.map(host => (
+            {hosts.map(host => {
+              const activeTab = tabs.find(t => t.title === host.name);
+              return (
               <div key={host.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '0.75rem 1rem', borderRadius: '8px' }}>
                 <div>
                   <div style={{ fontWeight: 500 }}>{host.name}</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{host.username}@{host.host}:{host.port}</div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <button className="button" style={{ padding: '0.5rem 1rem' }} onClick={() => handleStartSession(host.id)}>
-                    <Play size={14} /> Conectar
-                  </button>
+                  {activeTab ? (
+                    <button className="button button-outline" style={{ padding: '0.5rem 1rem', borderColor: 'var(--success)' }} onClick={() => { setActiveTab(activeTab.id); navigate('/workspace'); }}>
+                      <span style={{width: 8, height: 8, borderRadius: '50%', background: 'var(--success)'}}/> Aberto
+                    </button>
+                  ) : (
+                    <button className="button" style={{ padding: '0.5rem 1rem' }} onClick={() => handleStartSession(host.id)}>
+                      <Play size={14} /> Conectar
+                    </button>
+                  )}
                   {user?.role === 'admin' && (
                     <button className="icon-btn danger" onClick={() => handleDeleteHost(host.id)} title="Remover Servidor">
                       <Trash2 size={16} />
@@ -133,7 +144,7 @@ export const Dashboard = () => {
                   )}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
 

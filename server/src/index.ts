@@ -46,6 +46,10 @@ io.on('connection', (socket) => {
   // Send initial list of sessions
   socket.emit('active_sessions_update', getActiveSessionsList());
 
+  socket.on('get_active_sessions', () => {
+    socket.emit('active_sessions_update', getActiveSessionsList());
+  });
+
   socket.on('start_session', (payload) => {
     const { hostId } = payload;
     startSSHConnection(hostId, socket, io, username);

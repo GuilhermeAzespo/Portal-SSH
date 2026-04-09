@@ -3,12 +3,13 @@ import { SocketContext } from '../contexts/SocketContext';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '../store/workspaceStore';
-import { Server, Play, Eye, LogOut, Plus, Trash2, X } from 'lucide-react';
+import { Server, Play, Eye, LogOut, Plus, Trash2, X, Edit2 } from 'lucide-react';
 
 export const Dashboard = () => {
   const [hosts, setHosts] = useState<any[]>([]);
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingHostId, setEditingHostId] = useState<number | null>(null);
   const [newHost, setNewHost] = useState({
     name: '', host: '', port: 22, username: '', password: '', privateKey: ''
   });
@@ -56,8 +57,11 @@ export const Dashboard = () => {
     e.preventDefault();
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/api/hosts`, {
-        method: 'POST',
+      const url = editingHostId ? `/api/hosts/${editingHostId}` : `/api/hosts`;
+      const method = editingHostId ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -66,16 +70,30 @@ export const Dashboard = () => {
       });
       if (res.ok) {
         setIsModalOpen(false);
+        setEditingHostId(null);
         setNewHost({ name: '', host: '', port: 22, username: '', password: '', privateKey: '' });
         fetchHosts();
       } else {
         const errorData = await res.json();
-        alert(errorData.error || 'Erro ao adicionar servidor');
+        alert(errorData.error || `Erro ao ${editingHostId ? 'editar' : 'adicionar'} servidor`);
       }
     } catch (e) {
       console.error(e);
       alert('Erro na conexão com API');
     }
+  };
+
+  const handleEditClick = (host: any) => {
+    setNewHost({
+      name: host.name,
+      host: host.host,
+      port: host.port,
+      username: host.username,
+      password: '',
+      privateKey: ''
+    });
+    setEditingHostId(host.id);
+    setIsModalOpen(true);
   };
 
   const handleDeleteHost = async (id: number) => {
@@ -112,7 +130,11 @@ export const Dashboard = () => {
               <Server size={20} color="var(--primary)" /> Meus Servidores
             </h2>
             {user?.role === 'admin' && (
-              <button className="button" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }} onClick={() => setIsModalOpen(true)}>
+              <button className="button" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }} onClick={() => {
+                setEditingHostId(null);
+                setNewHost({ name: '', host: '', port: 22, username: '', password: '', privateKey: '' });
+                setIsModalOpen(true);
+              }}>
                 <Plus size={16} /> Adicionar
               </button>
             )}
@@ -138,9 +160,14 @@ export const Dashboard = () => {
                     </button>
                   )}
                   {user?.role === 'admin' && (
-                    <button className="icon-btn danger" onClick={() => handleDeleteHost(host.id)} title="Remover Servidor">
-                      <Trash2 size={16} />
-                    </button>
+                    <>
+                      <button className="icon-btn" style={{ color: 'var(--text-main)' }} onClick={() => handleEditClick(host)} title="Editar Servidor">
+                        <Edit2 size={16} />
+                      </button>
+                      <button className="icon-btn danger" onClick={() => handleDeleteHost(host.id)} title="Remover Servidor">
+                        <Trash2 size={16} />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -170,12 +197,15 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* Add Host Modal */}
+      {/* Add/Edit Host Modal */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
           <div className="modal fade-in" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title"><Server size={20} color="var(--primary)" /> Adicionar Servidor SSH</h3>
+              <h3 className="modal-title">
+                <Server size={20} color="var(--primary)" /> 
+                {editingHostId ? 'Editar Servidor SSH' : 'Adicionar Servidor SSH'}
+              </h3>
               <button className="icon-btn" onClick={() => setIsModalOpen(false)}>
                 <X size={20} />
               </button>
@@ -201,16 +231,16 @@ export const Dashboard = () => {
                 <input className="input" required placeholder="Ex: root" value={newHost.username} onChange={e => setNewHost({...newHost, username: e.target.value})} />
               </div>
               <div className="form-group">
-                <label className="form-label">Senha (Opcional se usar Chave)</label>
+                <label className="form-label">Senha {editingHostId ? '(Deixe em branco para manter)' : '(Opcional)'}</label>
                 <input className="input" type="password" placeholder="Senha do SSH" value={newHost.password} onChange={e => setNewHost({...newHost, password: e.target.value})} />
               </div>
               <div className="form-group">
-                <label className="form-label">Chave Privada SSH (Opcional, formato PEM)</label>
+                <label className="form-label">Chave Privada SSH {editingHostId ? '(Deixe em branco para manter)' : '(Opcional)'}</label>
                 <textarea className="input" placeholder="-----BEGIN RSA PRIVATE KEY-----..." value={newHost.privateKey} onChange={e => setNewHost({...newHost, privateKey: e.target.value})} />
               </div>
               
               <button className="button" style={{ width: '100%', marginTop: '1rem' }} type="submit">
-                Cadastrar Servidor
+                {editingHostId ? 'Salvar Alterações' : 'Cadastrar Servidor'}
               </button>
             </form>
           </div>

@@ -5,6 +5,8 @@ import cors from 'cors';
 import { Client } from 'ssh2';
 import dotenv from 'dotenv';
 import './db/database'; // Initialize DB
+import authRoutes from './routes/authRoutes';
+import hostRoutes from './routes/hostRoutes';
 
 dotenv.config();
 
@@ -13,6 +15,9 @@ const server = http.createServer(app);
 
 app.use(cors());
 app.use(express.json());
+
+app.use('/api/auth', authRoutes);
+app.use('/api/hosts', hostRoutes);
 
 const io = new Server(server, {
   cors: {

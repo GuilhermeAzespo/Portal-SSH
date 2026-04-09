@@ -27,8 +27,7 @@ export const Dashboard = () => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
-      const API_URL = `http://${window.location.hostname}:4000`;
-      const res = await fetch(`${API_URL}/api/hosts`, {
+      const res = await fetch(`/api/hosts`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();

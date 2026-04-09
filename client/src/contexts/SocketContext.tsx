@@ -14,8 +14,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      const API_URL = `http://${window.location.hostname}:4000`;
-      const newSocket = io(API_URL, {
+      const newSocket = io({
         auth: {
           token
         }

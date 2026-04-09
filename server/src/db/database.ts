@@ -34,7 +34,7 @@ export const db = new sqlite3.Database(dbPath, (err) => {
       db.get("SELECT COUNT(*) AS count FROM users WHERE role = 'admin'", (err, row: any) => {
         if (row && row.count === 0) {
           // bcrypt hashed 'admin' for default password
-          const defaultPassword = '$2b$10$wT.f.D7PqzYqIItWwF.nOuJXX22oKxw/m6zJ.u4K/21o5jC4lK87a'; 
+          const defaultPassword = '$2b$10$mb6cDaqTdIJUtdc3R92PbeauKkak8kQbJIVAIKa2M1UplWn8nr9ca'; 
           db.run(`INSERT INTO users (username, password, role) VALUES ('admin', ?, 'admin')`, [defaultPassword], (err) => {
             if (err) console.error("Error creating default admin:", err.message);
             else console.log('Default admin created. (admin/admin)');

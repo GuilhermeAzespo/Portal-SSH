@@ -7,8 +7,8 @@ services:
     ports:
       - "4000:4000"
     volumes:
-      # Mantém o banco de dados persistente
-      - ./server/database.sqlite:/app/database.sqlite
+      # Mantém o banco de dados persistente em um Volume isolado do Docker
+      - sqlite_data:/app/db_data
     environment:
       - NODE_ENV=production
       - JWT_SECRET=sua_chave_secreta_super_segura
@@ -22,3 +22,6 @@ services:
     depends_on:
       - server
     restart: always
+
+volumes:
+  sqlite_data:

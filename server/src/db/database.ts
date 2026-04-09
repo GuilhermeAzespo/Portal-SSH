@@ -15,9 +15,17 @@ export const db = new sqlite3.Database(dbPath, (err) => {
       db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE,
         password TEXT NOT NULL,
+        firstName TEXT,
+        lastName TEXT,
         role TEXT NOT NULL DEFAULT 'user'
       )`);
+
+      // SQLite migrations (safe failure if already exists)
+      db.run(`ALTER TABLE users ADD COLUMN email TEXT`, () => {});
+      db.run(`ALTER TABLE users ADD COLUMN firstName TEXT`, () => {});
+      db.run(`ALTER TABLE users ADD COLUMN lastName TEXT`, () => {});
 
       // Hosts table
       db.run(`CREATE TABLE IF NOT EXISTS hosts (

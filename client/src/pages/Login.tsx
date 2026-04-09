@@ -44,7 +44,7 @@ export const Login = () => {
           {error && <div style={{ color: 'var(--danger)', fontSize: '0.875rem', textAlign: 'center' }}>{error}</div>}
           <input 
             className="input" 
-            placeholder="Usuário" 
+            placeholder="E-mail ou Usuário" 
             value={username}
             onChange={e => setUsername(e.target.value)}
           />

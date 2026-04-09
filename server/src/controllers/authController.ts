@@ -12,7 +12,7 @@ export const login = (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Username and password required' });
   }
 
-  db.get(`SELECT * FROM users WHERE username = ?`, [username], async (err, user: any) => {
+  db.get(`SELECT * FROM users WHERE username = ? OR email = ?`, [username, username], async (err, user: any) => {
     if (err) {
       console.error(err);
       return res.status(500).json({ error: 'Database error' });

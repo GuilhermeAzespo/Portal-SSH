@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken';
 import './db/database'; // Initialize DB
 import authRoutes from './routes/authRoutes';
 import hostRoutes from './routes/hostRoutes';
-import { startSSHConnection, activeSessions, getActiveSessionsList } from './services/sshService';
+import userRoutes from './routes/userRoutes';
 
 dotenv.config();
 
@@ -20,6 +20,9 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/hosts', hostRoutes);
+app.use('/api/users', userRoutes);
+
+import { startSSHConnection, activeSessions, getActiveSessionsList } from './services/sshService';
 
 const io = new Server(server, {
   cors: {

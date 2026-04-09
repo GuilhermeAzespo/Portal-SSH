@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  server:
+    build: 
+      context: ./server
+    ports:
+      - "4000:4000"
+    volumes:
+      # Mantém o banco de dados persistente
+      - ./server/database.sqlite:/app/database.sqlite
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=sua_chave_secreta_super_segura
+    restart: always
+
+  client:
+    build:
+      context: ./client
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    restart: always

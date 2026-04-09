@@ -4,9 +4,11 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { Client } from 'ssh2';
 import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
 import './db/database'; // Initialize DB
 import authRoutes from './routes/authRoutes';
 import hostRoutes from './routes/hostRoutes';
+import { startSSHConnection, activeSessions, getActiveSessionsList } from './services/sshService';
 
 dotenv.config();
 
@@ -26,11 +28,54 @@ const io = new Server(server, {
   }
 });
 
-// A simple structure to hold active SSH sessions
-const activeSessions: Record<string, { ssh: Client, stream: any }> = {};
+// Socket.IO authentication middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) return next(new Error('Authentication error'));
+  jwt.verify(token, process.env.JWT_SECRET || 'portal-ssh-secret-dev', (err: any, decoded: any) => {
+    if (err) return next(new Error('Authentication error'));
+    socket.data.user = decoded;
+    next();
+  });
+});
 
 io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
+  const username = socket.data.user.username;
+  console.log(`Client connected: ${socket.id} user: ${username}`);
+
+  // Send initial list of sessions
+  socket.emit('active_sessions_update', getActiveSessionsList());
+
+  socket.on('start_session', (payload) => {
+    const { hostId } = payload;
+    startSSHConnection(hostId, socket, io, username);
+  });
+
+  socket.on('join_session', (payload) => {
+    const { sessionId } = payload;
+    if (activeSessions[sessionId]) {
+      socket.join(`session_${sessionId}`);
+      socket.emit('session_joined', { sessionId, hostName: activeSessions[sessionId].hostName });
+    } else {
+      socket.emit('ssh_error', 'Session not found');
+    }
+  });
+
+  socket.on('ssh_input', (payload) => {
+    const { sessionId, data } = payload;
+    const session = activeSessions[sessionId];
+    if (session && session.stream) {
+      session.stream.write(data);
+    }
+  });
+
+  socket.on('resize', (payload) => {
+    const { sessionId, cols, rows } = payload;
+    const session = activeSessions[sessionId];
+    if (session && session.stream) {
+      session.stream.setWindow(rows, cols, 480, 640);
+    }
+  });
 
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);

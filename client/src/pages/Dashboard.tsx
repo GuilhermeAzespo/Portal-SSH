@@ -3,7 +3,7 @@ import { SocketContext } from '../contexts/SocketContext';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '../store/workspaceStore';
-import { Server, Play, Eye, LogOut, Plus, Trash2, X, Edit2 } from 'lucide-react';
+import { Server, Play, Eye, Plus, Trash2, X, Edit2 } from 'lucide-react';
 
 export const Dashboard = () => {
   const [hosts, setHosts] = useState<any[]>([]);

@@ -3,7 +3,6 @@ import { Settings as SettingsIcon, DownloadCloud, CheckCircle, XCircle, RefreshC
 import pkg from '../../package.json'; // Reading version locally
 
 export const Settings = () => {
-  const [activeTab, setActiveTab] = useState('system');
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [errorCheck, setErrorCheck] = useState<string | null>(null);
@@ -44,24 +43,11 @@ export const Settings = () => {
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: 0 }}>
-          <SettingsIcon size={28} color="var(--primary)" /> Configurações
+          <SettingsIcon size={28} color="var(--primary)" /> Atualizações do Sistema
         </h1>
-        
-        {/* Dropdown menu equivalent as Tab Selector */}
-        <select 
-           className="input" 
-           style={{ width: '250px', cursor: 'pointer', background: 'var(--bg-surface)' }}
-           value={activeTab}
-           onChange={(e) => setActiveTab(e.target.value)}
-        >
-          <option value="system">Sistema e Atualizações (OTA)</option>
-          <option value="appearance">Aparência (Em breve)</option>
-          <option value="security">Segurança (Em breve)</option>
-        </select>
       </div>
 
-      {activeTab === 'system' && (
-        <div style={{ display: 'grid', gap: '1.5rem', maxWidth: '800px' }}>
+      <div style={{ display: 'grid', gap: '1.5rem', maxWidth: '800px' }}>
           
           <div className="card glass">
             <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -134,15 +120,6 @@ export const Settings = () => {
           </div>
           
         </div>
-      )}
-
-      {activeTab !== 'system' && (
-        <div className="card glass" style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-          <SettingsIcon size={48} color="var(--text-muted)" style={{ marginBottom: '1rem', opacity: 0.5 }} />
-          <h3 style={{ color: 'var(--text-main)', margin: '0 0 0.5rem 0' }}>Painel em Desenvolvimento</h3>
-          <p style={{ color: 'var(--text-muted)' }}>Esta categoria administrativa está planejada para ser liberada nas próximas versões (v1.x.x).</p>
-        </div>
-      )}
 
     </div>
   );

@@ -266,3 +266,13 @@ textarea.input {
   margin: 0 auto;
   width: 100%;
 }
+
+@keyframes spin-animation {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin-animation 1s linear infinite;
+}

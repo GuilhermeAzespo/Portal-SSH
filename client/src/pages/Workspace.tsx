@@ -90,6 +90,9 @@ export const Workspace = () => {
                 size={14} 
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (tab.type === 'active') {
+                    socket?.emit('close_session', { sessionId: tab.id });
+                  }
                   removeTab(tab.id);
                   if (tabs.length === 1) navigate('/dashboard');
                 }}

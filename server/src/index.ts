@@ -65,6 +65,16 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('close_session', (payload) => {
+    const { sessionId } = payload;
+    const session = activeSessions[sessionId];
+    if (session) {
+      session.ssh.end();
+      delete activeSessions[sessionId];
+      io.emit('active_sessions_update', getActiveSessionsList());
+    }
+  });
+
   socket.on('ssh_input', (payload) => {
     const { sessionId, data } = payload;
     const session = activeSessions[sessionId];

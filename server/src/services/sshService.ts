@@ -45,7 +45,7 @@ export const startSSHConnection = (
           io.to(`session_${sessionId}`).emit('ssh_close');
           io.emit('active_sessions_update', getActiveSessionsList());
         }).on('data', (data: any) => {
-          io.to(`session_${sessionId}`).emit('ssh_data', data.toString('utf-8'));
+          io.to(`session_${sessionId}`).emit('ssh_data', { sessionId, data: data.toString('utf-8') });
         });
       });
     }).on('error', (err) => {

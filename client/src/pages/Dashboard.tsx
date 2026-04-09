@@ -14,7 +14,7 @@ export const Dashboard = () => {
     name: '', host: '', port: 22, username: '', password: '', privateKey: ''
   });
   const { socket } = useContext(SocketContext);
-  const { user, logout } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const { tabs, setActiveTab } = useWorkspaceStore();
   const navigate = useNavigate();
 
@@ -111,18 +111,14 @@ export const Dashboard = () => {
   };
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1 style={{ margin: 0 }}>Dashboard</h1>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <span style={{ color: 'var(--text-muted)' }}>Olá, <b>{user?.username}</b></span>
-          <button className="button button-outline" onClick={() => { logout(); navigate('/login'); }}>
-            <LogOut size={16} /> Sair
-          </button>
-        </div>
+        <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: 0 }}>
+          <Server size={28} color="var(--primary)" /> Gestão de Servidores
+        </h1>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem' }}>
         {/* Servers List */}
         <div className="card glass fade-in">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

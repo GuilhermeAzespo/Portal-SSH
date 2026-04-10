@@ -10,6 +10,7 @@ import authRoutes from './routes/authRoutes';
 import hostRoutes from './routes/hostRoutes';
 import userRoutes from './routes/userRoutes';
 import roleRoutes from './routes/roleRoutes';
+import updateRoutes from './routes/updateRoutes';
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/hosts', hostRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
+app.use('/api/update', updateRoutes);
 
 import { startSSHConnection, activeSessions, getActiveSessionsList } from './services/sshService';
 

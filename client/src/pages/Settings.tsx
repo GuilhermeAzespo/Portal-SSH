@@ -5,6 +5,7 @@ import pkg from '../../package.json'; // Reading version locally
 export const Settings = () => {
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [errorCheck, setErrorCheck] = useState<string | null>(null);
 
   const currentVersion = pkg.version;
@@ -13,14 +14,12 @@ export const Settings = () => {
     setIsChecking(true);
     setErrorCheck(null);
     try {
-      // Fetch Github API for the latest tag
       const res = await fetch('https://api.github.com/repos/GuilhermeAzespo/Portal-SSH/tags');
       if (!res.ok) throw new Error('Não foi possível conectar ao GitHub');
       const tags = await res.json();
       
       if (tags && tags.length > 0) {
-        // Assume the first tag is the latest chronologically 
-        const latestTag = tags[0].name.replace('v', ''); // remove logic 'v' like v1.0.0
+        const latestTag = tags[0].name.replace('v', '');
         setLatestVersion(latestTag);
       } else {
         setErrorCheck('Nenhuma versão de lançamento encontrada no repositório.');
@@ -29,6 +28,37 @@ export const Settings = () => {
       setErrorCheck(e.message);
     } finally {
       setIsChecking(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!confirm('Tem certeza que deseja aplicar a atualização agora? O sistema ficará offline por alguns instantes durante o reinício dos containers.')) return;
+    
+    setIsUpdating(true);
+    const token = localStorage.getItem('token');
+    
+    try {
+      const res = await fetch('/api/update/trigger', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        // The server will restart soon. We show a message and wait.
+        setTimeout(() => {
+          window.location.reload();
+        }, 30000); // 30 seconds wait for rebuild/restart
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Erro ao iniciar atualização');
+        setIsUpdating(false);
+      }
+    } catch (e) {
+      // Catching the error is expected as the server closes the connection to restart
+      console.log('Update triggered, waiting for restart...');
+      setTimeout(() => {
+        window.location.reload();
+      }, 30000);
     }
   };
 
@@ -47,7 +77,7 @@ export const Settings = () => {
         </h1>
       </div>
 
-      <div style={{ display: 'grid', gap: '1.5rem', maxWidth: '800px' }}>
+      <div style={{ gridTemplateColumns: '1fr', gap: '1.5rem', maxWidth: '800px', display: 'grid' }}>
           
           <div className="card glass">
             <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -66,21 +96,42 @@ export const Settings = () => {
                 </div>
               </div>
 
-              <div>
+              <div style={{ display: 'flex', gap: '1rem' }}>
                 <button 
                   className="button"
                   onClick={checkForUpdates}
-                  disabled={isChecking}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  disabled={isChecking || isUpdating}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', border: '1px solid rgba(255,255,255,0.1)' }}
                 >
                   {isChecking ? <RefreshCw size={16} className="spin" /> : <RefreshCw size={16} />}
-                  Procurar Atualizações
+                  Procurar
                 </button>
+
+                {!isUpToDate && latestVersion && (
+                  <button 
+                    className="button"
+                    onClick={handleUpdate}
+                    disabled={isUpdating}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    {isUpdating ? <RefreshCw size={16} className="spin" /> : <DownloadCloud size={16} />}
+                    {isUpdating ? 'Atualizando...' : 'Atualizar Agora'}
+                  </button>
+                )}
               </div>
             </div>
 
             <div style={{ marginTop: '1.5rem' }}>
               {isChecking && <div style={{ color: 'var(--text-muted)' }}>Consultando servidores da nuvem...</div>}
+              {isUpdating && (
+                <div style={{ background: 'rgba(var(--primary-rgb), 0.1)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--primary)', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                  <RefreshCw size={20} className="spin" />
+                  <div>
+                    <div style={{ fontWeight: 600 }}>Atualização em Progresso</div>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>O servidor está baixando os arquivos e reiniciando o serviço Docker. Por favor, aguarde cerca de 30 segundos sem fechar esta aba.</div>
+                  </div>
+                </div>
+              )}
               
               {!isChecking && errorCheck && (
                 <div style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -88,7 +139,7 @@ export const Settings = () => {
                 </div>
               )}
 
-              {!isChecking && latestVersion && (
+              {!isChecking && !isUpdating && latestVersion && (
                 <div style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -101,7 +152,7 @@ export const Settings = () => {
                   {isUpToDate ? (
                     <>
                       <CheckCircle size={20} />
-                      <span>Excelente! Sua infraestrutura está rodando a última versão estável disponível. (v{latestVersion}).</span>
+                      <span>Excelente! Sua infraestrutura está rodando a última versão disponível. (v{latestVersion}).</span>
                     </>
                   ) : (
                     <>
@@ -109,7 +160,7 @@ export const Settings = () => {
                       <div>
                         <strong>Nova versão disponível: v{latestVersion}</strong>
                         <div style={{ fontSize: '0.875rem', marginTop: '0.25rem', color: 'var(--text-muted)' }}>
-                          Para aplicar as correções, execute <code>git pull && docker-compose restart</code> em seu terminal mestre.
+                          Clique no botão "Atualizar Agora" acima para aplicar as correções automáticas via O.T.A.
                         </div>
                       </div>
                     </>
@@ -118,9 +169,7 @@ export const Settings = () => {
               )}
             </div>
           </div>
-          
         </div>
-
     </div>
   );
 };

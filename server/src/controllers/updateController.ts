@@ -16,19 +16,27 @@ export const triggerUpdate = (req: Request, res: Response) => {
 
   // 2. Run update script in background
   setTimeout(() => {
-    // We try 'docker compose' first (modern), then 'docker-compose' (legacy)
-    const updateCommand = `cd ${projectRoot} && git pull && (docker compose up -d --build || docker-compose up -d --build)`;
+    const logPath = '/app/db_data/update.log';
+    
+    // Commands to run:
+    // 1. Setup git safety (crucial for Docker mounted volumes)
+    // 2. Pull changes
+    // 3. Rebuild and restart (modern or legacy compose)
+    // 4. Log everything to a persistent file
+    const updateCommand = `(
+      echo "--- Update started at $(date) ---" && \
+      git config --global --add safe.directory ${projectRoot} && \
+      cd ${projectRoot} && \
+      git pull && \
+      (docker compose up -d --build || docker-compose up -d --build)
+    ) >> ${logPath} 2>&1`;
     
     exec(updateCommand, (error, stdout, stderr) => {
       if (error) {
-        console.error(`Update Error: ${error.message}`);
+        console.error(`Update Error (logged to ${logPath}): ${error.message}`);
         return;
       }
-      if (stderr) {
-        console.log(`Update Output (stderr): ${stderr}`);
-      }
-      console.log(`Update Output (stdout): ${stdout}`);
-      console.log('Update process completed. Service should have restarted.');
+      console.log('Update command dispatched successfully.');
     });
   }, 2000);
 };

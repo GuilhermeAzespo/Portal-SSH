@@ -44,10 +44,10 @@ export const Settings = () => {
       });
       
       if (res.ok) {
-        // The server will restart soon. We show a message and wait.
+        // The server will restart soon. We show a message and wait correctly.
         setTimeout(() => {
           window.location.reload();
-        }, 30000); // 30 seconds wait for rebuild/restart
+        }, 60000); // 60 seconds wait for rebuild/restart
       } else {
         const data = await res.json();
         alert(data.error || 'Erro ao iniciar atualização');
@@ -58,7 +58,7 @@ export const Settings = () => {
       console.log('Update triggered, waiting for restart...');
       setTimeout(() => {
         window.location.reload();
-      }, 30000);
+      }, 60000);
     }
   };
 

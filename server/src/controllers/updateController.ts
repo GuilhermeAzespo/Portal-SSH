@@ -15,9 +15,9 @@ export const triggerUpdate = (req: Request, res: Response) => {
   });
 
   // 2. Run update script in background
-  // We use a slight delay to allow the response to reach the client
   setTimeout(() => {
-    const updateCommand = `cd ${projectRoot} && git pull && docker compose up -d --build`;
+    // We try 'docker compose' first (modern), then 'docker-compose' (legacy)
+    const updateCommand = `cd ${projectRoot} && git pull && (docker compose up -d --build || docker-compose up -d --build)`;
     
     exec(updateCommand, (error, stdout, stderr) => {
       if (error) {

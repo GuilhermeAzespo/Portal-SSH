@@ -6,6 +6,7 @@ export const Users = () => {
   const { user: currentUser } = useContext(AuthContext);
   const [users, setUsers] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
+  const [sectors, setSectors] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   
@@ -17,28 +18,41 @@ export const Users = () => {
     password: '',
     confirmPassword: '',
     roleId: '' as string | number,
-    role: 'user' // legacy
+    role: 'user', // legacy
+    sectorIds: [] as number[]
   });
 
   const fetchData = async () => {
     const token = localStorage.getItem('token');
     try {
-      const [usersRes, rolesRes] = await Promise.all([
+      const [usersRes, rolesRes, sectorsRes] = await Promise.all([
         fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/roles', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch('/api/roles', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/sectors', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
       
       const usersData = await usersRes.json();
       const rolesData = await rolesRes.json();
+      const sectorsData = await sectorsRes.json();
       
       if (usersRes.ok) setUsers(usersData.users);
       if (rolesRes.ok) setRoles(rolesData.roles);
+      if (sectorsRes.ok) setSectors(sectorsData.sectors);
     } catch (e) {
       console.error(e);
     }
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  const handleToggleSector = (id: number) => {
+    setFormData(prev => ({
+      ...prev,
+      sectorIds: prev.sectorIds.includes(id)
+        ? prev.sectorIds.filter(sid => sid !== id)
+        : [...prev.sectorIds, id]
+    }));
+  };
 
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +74,8 @@ export const Users = () => {
       lastName: formData.lastName,
       password: formData.password,
       roleId: formData.roleId,
-      role: selectedRole ? selectedRole.name : 'user'
+      role: selectedRole ? selectedRole.name : 'user',
+      sectorIds: formData.sectorIds
     };
 
     const token = localStorage.getItem('token');
@@ -76,7 +91,7 @@ export const Users = () => {
       if (res.ok) {
         setIsModalOpen(false);
         setEditingUserId(null);
-        setFormData({ username: '', email: '', firstName: '', lastName: '', password: '', confirmPassword: '', roleId: '', role: 'user' });
+        setFormData({ username: '', email: '', firstName: '', lastName: '', password: '', confirmPassword: '', roleId: '', role: 'user', sectorIds: [] });
         fetchData();
       } else {
         const errorData = await res.json();
@@ -96,7 +111,8 @@ export const Users = () => {
       password: '',
       confirmPassword: '',
       roleId: u.roleId || '',
-      role: u.role || 'user'
+      role: u.role || 'user',
+      sectorIds: u.sectorIds || []
     });
     setEditingUserId(u.id);
     setIsModalOpen(true);
@@ -122,7 +138,7 @@ export const Users = () => {
         </h1>
         <button className="button" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }} onClick={() => {
           setEditingUserId(null);
-          setFormData({ username: '', email: '', firstName: '', lastName: '', password: '', confirmPassword: '', roleId: '', role: 'user' });
+          setFormData({ username: '', email: '', firstName: '', lastName: '', password: '', confirmPassword: '', roleId: '', role: 'user', sectorIds: [] });
           setIsModalOpen(true);
         }}>
           <Plus size={16} /> Novo Usuário
@@ -204,6 +220,23 @@ export const Users = () => {
                 <div className="form-group" style={{ flex: 1 }}>
                   <label className="form-label">Confirmação de Senha</label>
                   <input className="input" type="password" required={!!formData.password} minLength={6} placeholder="********" value={formData.confirmPassword} onChange={e => setFormData({...formData, confirmPassword: e.target.value})} />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Setores Autorizados</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto', padding: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                  {sectors.map(s => (
+                    <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={formData.sectorIds.includes(s.id)} 
+                        onChange={() => handleToggleSector(s.id)}
+                      />
+                      {s.name}
+                    </label>
+                  ))}
+                  {sectors.length === 0 && <span style={{ color: 'var(--text-muted)' }}>Nenhum setor cadastrado.</span>}
                 </div>
               </div>
 

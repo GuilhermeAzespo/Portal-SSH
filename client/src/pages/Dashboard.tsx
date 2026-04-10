@@ -8,10 +8,11 @@ import { Server, Play, Eye, Plus, Trash2, X, Edit2 } from 'lucide-react';
 export const Dashboard = () => {
   const [hosts, setHosts] = useState<any[]>([]);
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
+  const [sectors, setSectors] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingHostId, setEditingHostId] = useState<number | null>(null);
   const [newHost, setNewHost] = useState({
-    name: '', host: '', port: 22, username: '', password: '', privateKey: ''
+    name: '', host: '', port: 22, username: '', password: '', privateKey: '', sectorId: ''
   });
   const { socket } = useContext(SocketContext);
   const { user } = useContext(AuthContext);
@@ -20,6 +21,7 @@ export const Dashboard = () => {
 
   useEffect(() => {
     fetchHosts();
+    fetchSectors();
     if (socket) {
       socket.on('active_sessions_update', (sessions: any[]) => {
         setActiveSessions(sessions);
@@ -40,6 +42,19 @@ export const Dashboard = () => {
       });
       const data = await res.json();
       if (res.ok) setHosts(data.hosts);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchSectors = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch('/api/sectors', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) setSectors(data.sectors);
     } catch (e) {
       console.error(e);
     }
@@ -66,12 +81,15 @@ export const Dashboard = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(newHost)
+        body: JSON.stringify({
+          ...newHost,
+          sectorId: newHost.sectorId === '' ? null : parseInt(newHost.sectorId)
+        })
       });
       if (res.ok) {
         setIsModalOpen(false);
         setEditingHostId(null);
-        setNewHost({ name: '', host: '', port: 22, username: '', password: '', privateKey: '' });
+        setNewHost({ name: '', host: '', port: 22, username: '', password: '', privateKey: '', sectorId: '' });
         fetchHosts();
       } else {
         const errorData = await res.json();
@@ -90,7 +108,8 @@ export const Dashboard = () => {
       port: host.port,
       username: host.username,
       password: '',
-      privateKey: ''
+      privateKey: '',
+      sectorId: host.sectorId ? host.sectorId.toString() : ''
     });
     setEditingHostId(host.id);
     setIsModalOpen(true);
@@ -128,7 +147,7 @@ export const Dashboard = () => {
             {user?.role === 'admin' && (
               <button className="button" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }} onClick={() => {
                 setEditingHostId(null);
-                setNewHost({ name: '', host: '', port: 22, username: '', password: '', privateKey: '' });
+                setNewHost({ name: '', host: '', port: 22, username: '', password: '', privateKey: '', sectorId: '' });
                 setIsModalOpen(true);
               }}>
                 <Plus size={16} /> Adicionar
@@ -142,7 +161,14 @@ export const Dashboard = () => {
               return (
               <div key={host.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '0.75rem 1rem', borderRadius: '8px' }}>
                 <div>
-                  <div style={{ fontWeight: 500 }}>{host.name}</div>
+                  <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {host.name}
+                    {host.sectorName && (
+                      <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem', background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--primary)', borderRadius: '4px', border: '1px solid rgba(var(--primary-rgb), 0.2)' }}>
+                        {host.sectorName}
+                      </span>
+                    )}
+                  </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{host.username}@{host.host}:{host.port}</div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -208,6 +234,20 @@ export const Dashboard = () => {
             </div>
             
             <form onSubmit={handleAddHost}>
+              <div className="form-group">
+                <label className="form-label">Setor</label>
+                <select 
+                  className="input" 
+                  value={newHost.sectorId} 
+                  onChange={e => setNewHost({...newHost, sectorId: e.target.value})}
+                  style={{ appearance: 'auto' }}
+                >
+                  <option value="">Nenhum Setor (Geral)</option>
+                  {sectors.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
               <div className="form-group">
                 <label className="form-label">Nome de Identificação</label>
                 <input className="input" required placeholder="Ex: Servidor Produção AWS" value={newHost.name} onChange={e => setNewHost({...newHost, name: e.target.value})} />

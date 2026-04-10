@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Login, Dashboard, Workspace, Users, Permissions, Settings } from './pages';
+import { Login, Dashboard, Workspace, Users, Permissions, Sectors, Settings } from './pages';
 import { PrivateRoute } from './components/PrivateRoute';
 import { MainLayout } from './components/MainLayout';
 
@@ -13,6 +13,7 @@ function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="users" element={<Users />} />
           <Route path="permissions" element={<Permissions />} />
+          <Route path="sectors" element={<Sectors />} />
           <Route path="settings" element={<Settings />} />
           <Route index element={<Navigate to="/dashboard" replace />} />
         </Route>

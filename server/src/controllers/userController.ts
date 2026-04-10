@@ -4,20 +4,25 @@ import { db } from '../db/database';
 
 export const getUsers = (req: Request, res: Response) => {
   const query = `
-    SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.role, u.roleId, r.name as roleName 
+    SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.role, u.roleId, r.name as roleName,
+    (SELECT GROUP_CONCAT(sectorId) FROM user_sectors WHERE userId = u.id) as sectorIds
     FROM users u
     LEFT JOIN roles r ON u.roleId = r.id
   `;
-  db.all(query, [], (err, rows) => {
+  db.all(query, [], (err, rows: any) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
-    res.json({ users: rows });
+    const users = rows.map((u: any) => ({
+      ...u,
+      sectorIds: u.sectorIds ? u.sectorIds.split(',').map(Number) : []
+    }));
+    res.json({ users });
   });
 };
 
 export const createUser = async (req: Request, res: Response) => {
-  const { username, email, password, firstName, lastName, role, roleId } = req.body;
+  const { username, email, password, firstName, lastName, role, roleId, sectorIds } = req.body;
   
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'Username, email and password are required' });
@@ -34,7 +39,17 @@ export const createUser = async (req: Request, res: Response) => {
         }
         return res.status(500).json({ error: err.message });
       }
-      res.json({ message: 'User created successfully', id: this.lastID });
+      
+      const newUserId = this.lastID;
+
+      // Assign sectors
+      if (sectorIds && Array.isArray(sectorIds)) {
+        const sectorStmt = db.prepare(`INSERT INTO user_sectors (userId, sectorId) VALUES (?, ?)`);
+        sectorIds.forEach(sid => sectorStmt.run(newUserId, sid));
+        sectorStmt.finalize();
+      }
+
+      res.json({ message: 'User created successfully', id: newUserId });
     });
   } catch (error) {
     res.status(500).json({ error: 'Error encrypting password' });
@@ -43,7 +58,7 @@ export const createUser = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { username, email, password, firstName, lastName, role, roleId } = req.body;
+  const { username, email, password, firstName, lastName, role, roleId, sectorIds } = req.body;
   
   if (!username || !email) {
     return res.status(400).json({ error: 'Username and email are required' });
@@ -70,6 +85,16 @@ export const updateUser = async (req: Request, res: Response) => {
         return res.status(500).json({ error: err.message });
       }
       if (this.changes === 0) return res.status(404).json({ error: 'User not found' });
+
+      // Sync sectors: Delete old and insert new
+      db.run(`DELETE FROM user_sectors WHERE userId = ?`, [id], () => {
+        if (sectorIds && Array.isArray(sectorIds)) {
+          const sectorStmt = db.prepare(`INSERT INTO user_sectors (userId, sectorId) VALUES (?, ?)`);
+          sectorIds.forEach(sid => sectorStmt.run(id, sid));
+          sectorStmt.finalize();
+        }
+      });
+
       res.json({ message: 'User updated successfully' });
     });
   } catch (error) {

@@ -15,16 +15,22 @@ export const MainLayout = () => {
   };
 
   const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
-    { path: '/users', label: 'Usuários', icon: Users, adminOnly: true },
-    { path: '/permissions', label: 'Permissões', icon: Shield, adminOnly: true },
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
+    { path: '/users', label: 'Usuários', icon: Users, permission: 'users.view' },
+    { path: '/permissions', label: 'Permissões', icon: Shield, permission: 'permissions.manage' },
     { 
-      path: '/settings', label: 'Configurações', icon: Settings, adminOnly: true,
+      path: '/settings', label: 'Configurações', icon: Settings, permission: 'settings.view',
       children: [
         { path: '/settings', label: 'Atualizações' }
       ]
     },
   ];
+
+  const hasPermission = (permission?: string) => {
+    if (!permission) return true;
+    if (user?.role === 'admin') return true;
+    return user?.permissions?.includes(permission);
+  };
 
   const toggleMenu = (path: string) => {
     setOpenMenus(prev => ({ ...prev, [path]: !prev[path] }));
@@ -42,7 +48,7 @@ export const MainLayout = () => {
 
         <nav className="sidebar-nav">
           {navItems.map((item) => {
-            if (item.adminOnly && user?.role !== 'admin') return null;
+            if (!hasPermission(item.permission)) return null;
             const isActive = location.pathname.startsWith(item.path);
             return (
               <div key={item.path}>
@@ -88,7 +94,7 @@ export const MainLayout = () => {
         <div className="sidebar-footer">
           <div style={{ marginBottom: '1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
             Olá, <b style={{ color: 'var(--text-main)' }}>{user?.username}</b>
-            <div style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>Papel: {user?.role}</div>
+            <div style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>Papel: {user?.roleName || user?.role}</div>
           </div>
           <button className="sidebar-link" onClick={handleLogout} style={{ color: 'var(--danger)' }}>
             <LogOut size={18} />

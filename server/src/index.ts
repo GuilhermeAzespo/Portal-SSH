@@ -9,6 +9,7 @@ import './db/database'; // Initialize DB
 import authRoutes from './routes/authRoutes';
 import hostRoutes from './routes/hostRoutes';
 import userRoutes from './routes/userRoutes';
+import roleRoutes from './routes/roleRoutes';
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/hosts', hostRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/roles', roleRoutes);
 
 import { startSSHConnection, activeSessions, getActiveSessionsList } from './services/sshService';
 

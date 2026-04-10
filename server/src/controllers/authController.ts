@@ -12,29 +12,47 @@ export const login = (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Username and password required' });
   }
 
-  db.get(`SELECT * FROM users WHERE username = ? OR email = ?`, [username, username], async (err, user: any) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Database error' });
-    }
+    const query = `
+      SELECT u.*, r.name as roleName, r.permissions 
+      FROM users u 
+      LEFT JOIN roles r ON u.roleId = r.id 
+      WHERE u.username = ? OR u.email = ?
+    `;
 
-    if (!user) {
-      return res.status(401).json({ error: 'User not found' });
-    }
+    db.get(query, [username, username], async (err, user: any) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Database error' });
+      }
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
 
-    const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+      const match = await bcrypt.compare(password, user.password);
+      if (!match) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
 
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
-  });
+      const permissions = user.permissions ? JSON.parse(user.permissions) : [];
+
+      const token = jwt.sign(
+        { id: user.id, username: user.username, role: user.role },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      res.json({ 
+        token, 
+        user: { 
+          id: user.id, 
+          username: user.username, 
+          role: user.role,
+          roleName: user.roleName || user.role,
+          permissions: permissions
+        } 
+      });
+    });
 };
 
 export const getMe = (req: any, res: Response) => {

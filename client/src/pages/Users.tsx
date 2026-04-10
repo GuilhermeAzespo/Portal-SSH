@@ -5,31 +5,40 @@ import { Users as UsersIcon, Plus, Edit2, Trash2, X, ShieldAlert } from 'lucide-
 export const Users = () => {
   const { user: currentUser } = useContext(AuthContext);
   const [users, setUsers] = useState<any[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   
   const [formData, setFormData] = useState({
-    username: '', // will be same as email for login
+    username: '', 
     email: '',
     firstName: '',
     lastName: '',
     password: '',
     confirmPassword: '',
-    role: 'user'
+    roleId: '' as string | number,
+    role: 'user' // legacy
   });
 
-  const fetchUsers = async () => {
+  const fetchData = async () => {
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
-      const data = await res.json();
-      if (res.ok) setUsers(data.users);
+      const [usersRes, rolesRes] = await Promise.all([
+        fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/roles', { headers: { 'Authorization': `Bearer ${token}` } })
+      ]);
+      
+      const usersData = await usersRes.json();
+      const rolesData = await rolesRes.json();
+      
+      if (usersRes.ok) setUsers(usersData.users);
+      if (rolesRes.ok) setRoles(rolesData.roles);
     } catch (e) {
       console.error(e);
     }
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,13 +51,16 @@ export const Users = () => {
       return;
     }
 
+    const selectedRole = roles.find(r => String(r.id) === String(formData.roleId));
+
     const payload = {
-      username: formData.email, // using email as identifier
+      username: formData.email, 
       email: formData.email,
       firstName: formData.firstName,
       lastName: formData.lastName,
       password: formData.password,
-      role: formData.role
+      roleId: formData.roleId,
+      role: selectedRole ? selectedRole.name : 'user'
     };
 
     const token = localStorage.getItem('token');
@@ -64,8 +76,8 @@ export const Users = () => {
       if (res.ok) {
         setIsModalOpen(false);
         setEditingUserId(null);
-        setFormData({ username: '', email: '', firstName: '', lastName: '', password: '', confirmPassword: '', role: 'user' });
-        fetchUsers();
+        setFormData({ username: '', email: '', firstName: '', lastName: '', password: '', confirmPassword: '', roleId: '', role: 'user' });
+        fetchData();
       } else {
         const errorData = await res.json();
         alert(errorData.error || `Erro ao ${editingUserId ? 'editar' : 'adicionar'} usuário`);
@@ -83,6 +95,7 @@ export const Users = () => {
       lastName: u.lastName || '',
       password: '',
       confirmPassword: '',
+      roleId: u.roleId || '',
       role: u.role || 'user'
     });
     setEditingUserId(u.id);
@@ -98,7 +111,7 @@ export const Users = () => {
     
     const token = localStorage.getItem('token');
     await fetch(`/api/users/${u.id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
-    fetchUsers();
+    fetchData();
   };
 
   return (
@@ -109,7 +122,7 @@ export const Users = () => {
         </h1>
         <button className="button" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }} onClick={() => {
           setEditingUserId(null);
-          setFormData({ username: '', email: '', firstName: '', lastName: '', password: '', confirmPassword: '', role: 'user' });
+          setFormData({ username: '', email: '', firstName: '', lastName: '', password: '', confirmPassword: '', roleId: '', role: 'user' });
           setIsModalOpen(true);
         }}>
           <Plus size={16} /> Novo Usuário
@@ -133,7 +146,7 @@ export const Users = () => {
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', textTransform: 'uppercase', marginRight: '0.5rem' }}>
-                  {u.role}
+                  {u.roleName || u.role}
                 </span>
 
                 <button className="icon-btn" style={{ color: 'var(--text-main)' }} onClick={() => handleEditClick(u)} title="Editar Usuário">
@@ -196,9 +209,11 @@ export const Users = () => {
 
               <div className="form-group">
                 <label className="form-label">Cargo / Nível de Acesso</label>
-                <select className="input" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
-                  <option value="user">Usuário Padrão</option>
-                  <option value="admin">Administrador Geral</option>
+                <select className="input" required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})}>
+                  <option value="" disabled>Selecione um cargo...</option>
+                  {roles.map(r => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
                 </select>
               </div>
               

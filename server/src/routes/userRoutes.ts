@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { getUsers, createUser, updateUser, deleteUser } from '../controllers/userController';
-import { authenticateToken, requireAdmin } from '../middlewares/authMiddleware';
+import { authenticateToken, requirePermission } from '../middlewares/authMiddleware';
 
 const router = Router();
 
-// Only admins can access users management
-router.get('/', authenticateToken, requireAdmin as any, getUsers);
-router.post('/', authenticateToken, requireAdmin as any, createUser as any);
-router.put('/:id', authenticateToken, requireAdmin as any, updateUser as any);
-router.delete('/:id', authenticateToken, requireAdmin as any, deleteUser as any);
+// Only those with permission can access users management
+router.get('/', authenticateToken, requirePermission('users.view'), getUsers);
+router.post('/', authenticateToken, requirePermission('users.manage'), createUser as any);
+router.put('/:id', authenticateToken, requirePermission('users.manage'), updateUser as any);
+router.delete('/:id', authenticateToken, requirePermission('users.manage'), deleteUser as any);
 
 export default router;

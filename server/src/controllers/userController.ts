@@ -3,7 +3,12 @@ import bcrypt from 'bcrypt';
 import { db } from '../db/database';
 
 export const getUsers = (req: Request, res: Response) => {
-  db.all('SELECT id, username, email, firstName, lastName, role FROM users', [], (err, rows) => {
+  const query = `
+    SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.role, u.roleId, r.name as roleName 
+    FROM users u
+    LEFT JOIN roles r ON u.roleId = r.id
+  `;
+  db.all(query, [], (err, rows) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -12,7 +17,7 @@ export const getUsers = (req: Request, res: Response) => {
 };
 
 export const createUser = async (req: Request, res: Response) => {
-  const { username, email, password, firstName, lastName, role } = req.body;
+  const { username, email, password, firstName, lastName, role, roleId } = req.body;
   
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'Username, email and password are required' });
@@ -20,9 +25,9 @@ export const createUser = async (req: Request, res: Response) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const stmt = db.prepare(`INSERT INTO users (username, email, password, firstName, lastName, role) VALUES (?, ?, ?, ?, ?, ?)`);
+    const stmt = db.prepare(`INSERT INTO users (username, email, password, firstName, lastName, role, roleId) VALUES (?, ?, ?, ?, ?, ?, ?)`);
     
-    stmt.run([username, email, hashedPassword, firstName || null, lastName || null, role || 'user'], function(err: any) {
+    stmt.run([username, email, hashedPassword, firstName || null, lastName || null, role || 'user', roleId || null], function(err: any) {
       if (err) {
         if (err.message.includes('UNIQUE constraint failed')) {
           return res.status(400).json({ error: 'Username or Email already exists' });
@@ -38,15 +43,15 @@ export const createUser = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { username, email, password, firstName, lastName, role } = req.body;
+  const { username, email, password, firstName, lastName, role, roleId } = req.body;
   
   if (!username || !email) {
     return res.status(400).json({ error: 'Username and email are required' });
   }
 
   try {
-    let query = `UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, role = ?`;
-    const params: any[] = [username, email, firstName || null, lastName || null, role || 'user'];
+    let query = `UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, role = ?, roleId = ?`;
+    const params: any[] = [username, email, firstName || null, lastName || null, role || 'user', roleId || null];
 
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -80,8 +85,8 @@ export const deleteUser = (req: Request, res: Response) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!userToDelete) return res.status(404).json({ error: 'User not found' });
 
-    if (userToDelete.role === 'admin') {
-      db.get(`SELECT COUNT(*) as count FROM users WHERE role = 'admin'`, [], (err, row: any) => {
+    if (userToDelete.role === 'admin' || userToDelete.role === 'Administrador') {
+      db.get(`SELECT COUNT(*) as count FROM users WHERE role = 'admin' OR role = 'Administrador'`, [], (err, row: any) => {
         if (err) return res.status(500).json({ error: err.message });
         if (row.count <= 1) {
           return res.status(403).json({ error: 'Cannot delete the only admin user' });

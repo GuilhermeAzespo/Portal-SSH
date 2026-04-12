@@ -86,4 +86,3 @@ docker compose logs -f
     - Docker Socket: O container do server monta /var/run/docker.sock - isso da acesso privilegiado ao host. Nao exponha o servidor publicamente sem autenticacao.
     - - JWT_SECRET: Nunca use o valor padrao em producao!
       - - Persistencia: O banco SQLite fica num volume Docker (sqlite_data), os dados sobrevivem a restarts e atualizacoes.
-        - 

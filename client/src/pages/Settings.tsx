@@ -35,40 +35,57 @@ export const Settings = () => {
     }
   };
 
-  // Poll the server to detect when it came back online after restart
+  // Poll /api/update/status and inspect the log content.
+  // Only reloads when the log contains the 'update done' marker,
+  // preventing false-positives from the server responding BEFORE it restarts.
   const startPollingForRestart = () => {
     let attempts = 0;
-    const maxAttempts = 40; // 40 × 5s = 200s max wait
+    const maxAttempts = 60; // 60 × 5s = 5 min max
     const token = localStorage.getItem('token');
+    const startedAt = Date.now();
 
     pollRef.current = setInterval(async () => {
       attempts++;
+      setUpdateLog(`⏳ Aguardando rebuild dos containers... (${Math.floor((Date.now() - startedAt) / 1000)}s)`);
+
       try {
-        // Any HTTP response means the server is back online.
-        // We send the token so it works whether the route is protected or public.
-        // A network error (fetch throws) means the server is still down.
-        await fetch('/api/update/status', {
+        const res = await fetch('/api/update/status', {
           headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-          signal: AbortSignal.timeout(3000)
+          signal: AbortSignal.timeout(4000)
         });
-        // If we reach here, server responded (any status code) = server is back!
-        clearInterval(pollRef.current!);
-        clearInterval(countdownRef.current!);
-        setUpdateLog('✅ Servidor reiniciado com sucesso! Recarregando...');
-        setTimeout(() => window.location.reload(), 1500);
+
+        if (res.ok) {
+          const data = await res.json();
+          const log: string = data.log || '';
+
+          if (log.includes('update done')) {
+            // Build finished and containers restarted successfully
+            clearInterval(pollRef.current!);
+            clearInterval(countdownRef.current!);
+            setUpdateLog('✅ Atualização concluída! Recarregando...');
+            setTimeout(() => window.location.reload(), 2000);
+          } else if (log.includes('error') || log.includes('Error') || log.includes('failed')) {
+            clearInterval(pollRef.current!);
+            clearInterval(countdownRef.current!);
+            setIsUpdating(false);
+            setUpdateLog('❌ Erro durante o build. Verifique o log no servidor: /app/db_data/update.log');
+          }
+          // Otherwise: still building, keep polling
+        }
       } catch {
-        // Network error = server still offline, keep polling
-        setUpdateLog(`⏳ Aguardando servidor reiniciar... (tentativa ${attempts}/${maxAttempts})`);
+        // Network error = server temporarily offline (swapping containers)
+        setUpdateLog('🔄 Servidor reiniciando containers... aguardando voltar online.');
       }
 
       if (attempts >= maxAttempts) {
         clearInterval(pollRef.current!);
         clearInterval(countdownRef.current!);
         setIsUpdating(false);
-        setUpdateLog('⚠️ Tempo limite excedido. Verifique os logs no servidor e recarregue manualmente.');
+        setUpdateLog('⚠️ Tempo limite excedido. Verifique: docker logs portal-ssh-server-1');
       }
     }, 5000);
   };
+
 
   const handleUpdate = async () => {
     if (!confirm('Tem certeza que deseja aplicar a atualização agora? O sistema ficará offline por alguns instantes durante o reinício dos containers.')) return;

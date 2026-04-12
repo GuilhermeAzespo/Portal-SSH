@@ -6,6 +6,9 @@ const router = Router();
 
 // Only admins can trigger system updates
 router.post('/trigger', authenticateToken, requireAdmin as any, triggerUpdate);
-router.get('/status', authenticateToken, requireAdmin as any, checkUpdateStatus);
+
+// Status endpoint is public - needed during server restart when token can't be verified
+// It only returns log info (no sensitive data)
+router.get('/status', checkUpdateStatus);
 
 export default router;

@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { SocketContext } from '../contexts/SocketContext';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { TerminalBlock } from '../components/TerminalBlock';
-import { X, ArrowLeft, Plus } from 'lucide-react';
+import { X, ArrowLeft, Plus, Terminal } from 'lucide-react';
 
 export const Workspace = () => {
   const [params] = useSearchParams();
@@ -16,7 +16,7 @@ export const Workspace = () => {
 
     const startHostId = params.get('startHostId');
     const joinSessionId = params.get('joinSessionId');
-    
+
     const handleSessionStarted = (payload: any) => {
       addTab({ id: payload.sessionId, title: payload.hostName, type: 'active' });
       navigate('/workspace', { replace: true });
@@ -52,70 +52,151 @@ export const Workspace = () => {
   }, [socket, params, navigate]);
 
   if (tabs.length === 0) {
-    return <div style={{ color: 'white', padding: '2rem' }}>Carregando workspace...</div>;
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: '100vh', background: 'var(--bg-base)', color: 'var(--text-muted)',
+        flexDirection: 'column', gap: '0.75rem', fontFamily: 'var(--font-mono)',
+      }}>
+        <Terminal size={32} style={{ opacity: 0.3 }} />
+        <span style={{ fontSize: '0.85rem' }}>Iniciando workspace...</span>
+      </div>
+    );
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-base)' }} className="fade-in">
-      <div style={{ display: 'flex', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-light)' }}>
-        <button 
-          className="button-outline" 
-          style={{ border: 'none', padding: '0 1rem', borderRight: '1px solid var(--border-light)', borderRadius: 0, cursor: 'pointer', background: 'transparent' }}
+
+      {/* Tab bar */}
+      <div style={{
+        display: 'flex',
+        background: 'var(--bg-surface)',
+        borderBottom: '1px solid var(--border-light)',
+        height: '42px',
+        flexShrink: 0,
+      }}>
+        {/* Back button */}
+        <button
           onClick={() => navigate('/dashboard')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.375rem',
+            padding: '0 1rem',
+            background: 'transparent',
+            border: 'none',
+            borderRight: '1px solid var(--border-light)',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            fontSize: '0.8rem',
+            fontFamily: 'var(--font-body)',
+            transition: 'color 0.15s',
+            flexShrink: 0,
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
         >
-          <ArrowLeft size={16} /> Dashboard
+          <ArrowLeft size={14} /> Dashboard
         </button>
-        
-        <div style={{ display: 'flex', overflowX: 'auto', flex: 1 }}>
-          {tabs.map(tab => (
-            <div 
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                padding: '0.75rem 1.5rem',
-                borderRight: '1px solid var(--border-light)',
-                background: activeTabId === tab.id ? 'var(--primary)' : 'transparent',
-                color: 'white',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                minWidth: '150px'
-              }}
-            >
-              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, fontSize: '0.875rem' }}>
-                {tab.title}
-              </span>
-              <X 
-                size={14} 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (tab.type === 'active') {
-                    socket?.emit('close_session', { sessionId: tab.id });
-                  }
-                  removeTab(tab.id);
-                  if (tabs.length === 1) navigate('/dashboard');
-                }}
-              />
-            </div>
-          ))}
+
+        {/* Logo pill */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '0.375rem',
+          padding: '0 0.875rem',
+          borderRight: '1px solid var(--border-light)',
+          color: 'var(--primary)',
+          fontSize: '0.75rem',
+          fontFamily: 'var(--font-mono)',
+          flexShrink: 0,
+        }}>
+          <Terminal size={13} /> workspace
         </div>
-        
-        <button 
-          className="button-outline" 
-          style={{ border: 'none', padding: '0 1rem', borderLeft: '1px solid var(--border-light)', borderRadius: 0, cursor: 'pointer', background: 'transparent' }}
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', overflowX: 'auto', flex: 1 }}>
+          {tabs.map(tab => {
+            const isActive = activeTabId === tab.id;
+            const isSpectator = tab.type === 'spectator';
+            return (
+              <div
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  padding: '0 1.25rem',
+                  borderRight: '1px solid var(--border-light)',
+                  background: isActive ? 'var(--bg-base)' : 'transparent',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.625rem',
+                  minWidth: '140px',
+                  maxWidth: '220px',
+                  position: 'relative',
+                  transition: 'background 0.15s',
+                  borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+                }}
+              >
+                {/* Status dot */}
+                <span style={{
+                  width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                  background: isSpectator ? 'var(--warning)' : 'var(--success)',
+                  boxShadow: isActive ? `0 0 6px ${isSpectator ? 'var(--warning)' : 'var(--success)'}` : 'none',
+                }} />
+                <span style={{
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  flex: 1, fontSize: '0.8rem',
+                  color: isActive ? 'var(--text-main)' : 'var(--text-muted)',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: isActive ? 500 : 400,
+                }}>
+                  {tab.title}
+                </span>
+                <X
+                  size={13}
+                  style={{ color: 'var(--text-subtle)', flexShrink: 0, transition: 'color 0.15s' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (tab.type === 'active') {
+                      socket?.emit('close_session', { sessionId: tab.id });
+                    }
+                    removeTab(tab.id);
+                    if (tabs.length === 1) navigate('/dashboard');
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
+                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-subtle)')}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* New tab button */}
+        <button
           onClick={() => navigate('/dashboard')}
+          title="Nova conexão"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.25rem',
+            padding: '0 0.875rem',
+            background: 'transparent',
+            border: 'none',
+            borderLeft: '1px solid var(--border-light)',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            transition: 'color 0.15s',
+            flexShrink: 0,
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
         >
-          <Plus size={16} /> Nova
+          <Plus size={16} />
         </button>
       </div>
 
-      <div style={{ flex: 1, position: 'relative' }}>
+      {/* Terminal panels */}
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         {tabs.map(tab => (
-          <TerminalBlock 
-            key={tab.id} 
-            sessionId={tab.id} 
-            isActive={activeTabId === tab.id} 
+          <TerminalBlock
+            key={tab.id}
+            sessionId={tab.id}
+            isActive={activeTabId === tab.id}
           />
         ))}
       </div>

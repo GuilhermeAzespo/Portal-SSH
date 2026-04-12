@@ -19,16 +19,6 @@ export const triggerUpdate = (req: Request, res: Response) => {
 
   // Schedule the update in background, fully detached
   setTimeout(() => {
-    // CRITICAL: Docker Compose derives the project name from the current working directory name.
-    // From inside the container, CWD is /app/host_source → project name becomes "host_source",
-    // creating NEW containers (host_source-server-1, host_source-client-1) that conflict
-    // with the real running containers (portal-ssh-server-1, portal-ssh-client-1).
-    //
-    // Fix: always pass -p portal-ssh to target the CORRECT running containers.
-    //
-    // We also use --no-cache because "git pull" may return "Already up to date"
-    // (files haven't changed on disk since a previous manual pull), which causes Docker
-    // to use a cached COPY layer and produce the exact same old JS/CSS output.
     const updateScript = `
 #!/bin/sh
 LOG="${logPath}"
@@ -40,10 +30,14 @@ git pull >> "$LOG" 2>&1
 echo "--- git pull done ---" >> "$LOG" 2>&1
 
 echo "--- rebuilding portal-ssh-client container ---" >> "$LOG" 2>&1
-# -p portal-ssh  → uses the correct project name matching the running containers
-# build --no-cache → forces fresh npm install + vite build even if source files are cached
+# -p portal-ssh   -> correct project name (avoids creating host_source-* containers)
+# build --no-cache -> forces fresh build even if source files unchanged on disk
+# up --no-deps    -> CRITICAL: do NOT touch the server container.
+#   Without this flag, Docker Compose resolves '.' in the volume mount as /app/host_source
+#   (container path) instead of /home/gui/Portal-SSH (host path), detecting a config
+#   difference and recreating the server, which then fails with SIGTERM.
 docker compose -p portal-ssh build --no-cache client >> "$LOG" 2>&1
-docker compose -p portal-ssh up -d client >> "$LOG" 2>&1
+docker compose -p portal-ssh up -d --no-deps client >> "$LOG" 2>&1
 
 echo "--- update done at $(date) ---" >> "$LOG" 2>&1
 `.trim();
@@ -54,7 +48,7 @@ echo "--- update done at $(date) ---" >> "$LOG" 2>&1
     const child = exec(`setsid sh ${scriptPath} </dev/null >>/dev/null 2>&1 &`);
     child.unref();
 
-    console.log('Update script dispatched (portal-ssh project, no-cache). Log:', logPath);
+    console.log('Update script dispatched (--no-deps, portal-ssh). Log:', logPath);
   }, 500);
 };
 

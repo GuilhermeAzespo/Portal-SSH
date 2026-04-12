@@ -62,13 +62,14 @@ export const Settings = () => {
             // Build finished and containers restarted successfully
             clearInterval(pollRef.current!);
             clearInterval(countdownRef.current!);
-            setUpdateLog('✅ Atualização concluída! Recarregando...');
-            setTimeout(() => window.location.reload(), 2000);
-          } else if (log.includes('error') || log.includes('Error') || log.includes('failed')) {
-            clearInterval(pollRef.current!);
-            clearInterval(countdownRef.current!);
             setIsUpdating(false);
-            setUpdateLog('❌ Erro durante o build. Verifique o log no servidor: /app/db_data/update.log');
+            setUpdateLog('✅ Atualização concluída com sucesso! Clique em OK para recarregar a página.');
+            // Use alert + manual navigation to avoid socket race conditions
+            // that redirect the user to /login after an automatic reload.
+            setTimeout(() => {
+              alert('✅ Atualização aplicada! A página será recarregada agora.');
+              window.location.replace(window.location.pathname);
+            }, 1500);
           }
           // Otherwise: still building, keep polling
         }

@@ -1,12 +1,16 @@
-import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, DownloadCloud, CheckCircle, XCircle, RefreshCw, Layers } from 'lucide-react';
-import pkg from '../../package.json'; // Reading version locally
+import { useState, useEffect, useRef } from 'react';
+import { Settings as SettingsIcon, DownloadCloud, CheckCircle, XCircle, RefreshCw, Layers, Terminal } from 'lucide-react';
+import pkg from '../../package.json';
 
 export const Settings = () => {
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [errorCheck, setErrorCheck] = useState<string | null>(null);
+  const [updateLog, setUpdateLog] = useState<string>('');
+  const [countdown, setCountdown] = useState(0);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentVersion = pkg.version;
 
@@ -17,7 +21,7 @@ export const Settings = () => {
       const res = await fetch('https://api.github.com/repos/GuilhermeAzespo/Portal-SSH/tags');
       if (!res.ok) throw new Error('Não foi possível conectar ao GitHub');
       const tags = await res.json();
-      
+
       if (tags && tags.length > 0) {
         const latestTag = tags[0].name.replace('v', '');
         setLatestVersion(latestTag);
@@ -31,145 +35,215 @@ export const Settings = () => {
     }
   };
 
+  // Poll the server to detect when it came back online after restart
+  const startPollingForRestart = () => {
+    let attempts = 0;
+    const maxAttempts = 40; // 40 × 5s = 200s max wait
+
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      try {
+        const res = await fetch('/api/update/status', { signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+          // Server is back online!
+          clearInterval(pollRef.current!);
+          clearInterval(countdownRef.current!);
+          setUpdateLog('✅ Servidor reiniciado com sucesso! Recarregando...');
+          setTimeout(() => window.location.reload(), 1500);
+        }
+      } catch {
+        // Server still offline — normal during restart, keep polling
+        setUpdateLog(`⏳ Aguardando servidor reiniciar... (tentativa ${attempts}/${maxAttempts})`);
+      }
+
+      if (attempts >= maxAttempts) {
+        clearInterval(pollRef.current!);
+        clearInterval(countdownRef.current!);
+        setIsUpdating(false);
+        setUpdateLog('⚠️ Tempo limite excedido. Verifique os logs no servidor e recarregue manualmente.');
+      }
+    }, 5000);
+  };
+
   const handleUpdate = async () => {
     if (!confirm('Tem certeza que deseja aplicar a atualização agora? O sistema ficará offline por alguns instantes durante o reinício dos containers.')) return;
-    
+
     setIsUpdating(true);
+    setUpdateLog('🚀 Enviando comando de atualização ao servidor...');
     const token = localStorage.getItem('token');
-    
+
     try {
       const res = await fetch('/api/update/trigger', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
+
       if (res.ok) {
-        // The server will restart soon. We show a message and wait correctly.
+        setUpdateLog('✅ Comando recebido! O servidor está fazendo git pull e rebuilding containers...');
+        
+        // Wait 10s then start polling for restart
         setTimeout(() => {
-          window.location.reload();
-        }, 60000); // 60 seconds wait for rebuild/restart
+          setUpdateLog('⏳ Containers sendo reconstruídos. Isso pode levar 1-3 minutos...');
+          startPollingForRestart();
+        }, 10000);
+
+        // Countdown for UX feedback
+        let secs = 120;
+        setCountdown(secs);
+        countdownRef.current = setInterval(() => {
+          secs--;
+          setCountdown(secs);
+          if (secs <= 0) clearInterval(countdownRef.current!);
+        }, 1000);
+
       } else {
         const data = await res.json();
-        alert(data.error || 'Erro ao iniciar atualização');
         setIsUpdating(false);
+        setUpdateLog('');
+        setErrorCheck(data.error || 'Erro ao iniciar atualização');
       }
-    } catch (e) {
-      // Catching the error is expected as the server closes the connection to restart
-      console.log('Update triggered, waiting for restart...');
-      setTimeout(() => {
-        window.location.reload();
-      }, 60000);
+    } catch {
+      // Connection dropped — server is restarting, start polling
+      setUpdateLog('🔄 Conexão encerrada (servidor reiniciando). Verificando quando voltar online...');
+      setTimeout(() => startPollingForRestart(), 8000);
     }
   };
 
   useEffect(() => {
     checkForUpdates();
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
   }, []);
 
   const isUpToDate = latestVersion && (latestVersion === currentVersion);
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: 0 }}>
-          <SettingsIcon size={28} color="var(--primary)" /> Atualizações do Sistema
+
+      <div className="page-header">
+        <h1 className="page-title">
+          <SettingsIcon size={26} />
+          Atualizações do Sistema
         </h1>
       </div>
 
       <div style={{ gridTemplateColumns: '1fr', gap: '1.5rem', maxWidth: '800px', display: 'grid' }}>
-          
-          <div className="card glass">
-            <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <DownloadCloud size={20} color="var(--primary)" /> Versionamento O.T.A
-            </h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-              Verifique o ciclo de vida da plataforma comparando seu lançamento atual diretamente com o repositório matriz de nuvem pública.
-            </p>
-            
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px' }}>
-              <div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Versão Atual instalada</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  v{currentVersion}
-                  <Layers size={18} color="var(--text-muted)" />
-                </div>
+        <div className="card glass">
+          <h3 style={{ margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', fontWeight: 600 }}>
+            <DownloadCloud size={18} color="var(--primary)" /> Versionamento O.T.A
+          </h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+            Verifique o ciclo de vida da plataforma comparando seu lançamento atual diretamente com o repositório matriz de nuvem pública.
+          </p>
+
+          {/* Version + Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-surface-2)', padding: '1.25rem 1.5rem', borderRadius: '10px', border: '1px solid var(--border-light)' }}>
+            <div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>
+                Versão instalada
               </div>
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <button 
-                  className="button"
-                  onClick={checkForUpdates}
-                  disabled={isChecking || isUpdating}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', border: '1px solid rgba(255,255,255,0.1)' }}
-                >
-                  {isChecking ? <RefreshCw size={16} className="spin" /> : <RefreshCw size={16} />}
-                  Procurar
-                </button>
-
-                {!isUpToDate && latestVersion && (
-                  <button 
-                    className="button"
-                    onClick={handleUpdate}
-                    disabled={isUpdating}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                  >
-                    {isUpdating ? <RefreshCw size={16} className="spin" /> : <DownloadCloud size={16} />}
-                    {isUpdating ? 'Atualizando...' : 'Atualizar Agora'}
-                  </button>
-                )}
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-mono)' }}>
+                v{currentVersion}
+                <Layers size={16} color="var(--text-muted)" />
               </div>
             </div>
 
-            <div style={{ marginTop: '1.5rem' }}>
-              {isChecking && <div style={{ color: 'var(--text-muted)' }}>Consultando servidores da nuvem...</div>}
-              {isUpdating && (
-                <div style={{ background: 'rgba(var(--primary-rgb), 0.1)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--primary)', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                  <RefreshCw size={20} className="spin" />
-                  <div>
-                    <div style={{ fontWeight: 600 }}>Atualização em Progresso</div>
-                    <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>O servidor está baixando os arquivos e reiniciando o serviço Docker. Por favor, aguarde cerca de 30 segundos sem fechar esta aba.</div>
-                  </div>
-                </div>
-              )}
-              
-              {!isChecking && errorCheck && (
-                <div style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <XCircle size={18} /> {errorCheck}
-                </div>
-              )}
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                className="button button-outline"
+                onClick={checkForUpdates}
+                disabled={isChecking || isUpdating}
+              >
+                {isChecking ? <RefreshCw size={15} className="spin" /> : <RefreshCw size={15} />}
+                Procurar
+              </button>
 
-              {!isChecking && !isUpdating && latestVersion && (
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.5rem', 
-                  padding: '1rem',
-                  borderRadius: '8px',
-                  background: isUpToDate ? 'rgba(74, 222, 128, 0.1)' : 'rgba(250, 204, 21, 0.1)',
-                  color: isUpToDate ? '#4ade80' : '#facc15'
-                }}>
-                  {isUpToDate ? (
-                    <>
-                      <CheckCircle size={20} />
-                      <span>Excelente! Sua infraestrutura está rodando a última versão disponível. (v{latestVersion}).</span>
-                    </>
-                  ) : (
-                    <>
-                      <DownloadCloud size={20} />
-                      <div>
-                        <strong>Nova versão disponível: v{latestVersion}</strong>
-                        <div style={{ fontSize: '0.875rem', marginTop: '0.25rem', color: 'var(--text-muted)' }}>
-                          Clique no botão "Atualizar Agora" acima para aplicar as correções automáticas via O.T.A.
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
+              {!isUpToDate && latestVersion && (
+                <button
+                  className="button"
+                  onClick={handleUpdate}
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? <RefreshCw size={15} className="spin" /> : <DownloadCloud size={15} />}
+                  {isUpdating ? `Atualizando... ${countdown > 0 ? `(${countdown}s)` : ''}` : 'Atualizar Agora'}
+                </button>
               )}
             </div>
           </div>
+
+          {/* Status messages */}
+          <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {isChecking && (
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <RefreshCw size={14} className="spin" /> Consultando servidores da nuvem...
+              </div>
+            )}
+
+            {isUpdating && updateLog && (
+              <div style={{
+                background: 'var(--primary-glow)',
+                padding: '1rem 1.25rem',
+                borderRadius: '8px',
+                border: '1px solid var(--primary-border)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'var(--primary)', fontWeight: 600, fontSize: '0.9rem' }}>
+                  <RefreshCw size={16} className="spin" />
+                  Atualização em Progresso
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
+                  {updateLog}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', marginTop: '0.25rem' }}>
+                  <Terminal size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                  Não feche esta aba. O sistema voltará online automaticamente após o rebuild.
+                </div>
+              </div>
+            )}
+
+            {!isChecking && errorCheck && (
+              <div style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', background: 'var(--danger-bg)', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid rgba(248,113,113,0.2)' }}>
+                <XCircle size={16} /> {errorCheck}
+              </div>
+            )}
+
+            {!isChecking && !isUpdating && latestVersion && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.625rem',
+                padding: '0.875rem 1rem',
+                borderRadius: '8px',
+                background: isUpToDate ? 'var(--success-bg)' : 'var(--warning-bg)',
+                color: isUpToDate ? 'var(--success)' : 'var(--warning)',
+                border: `1px solid ${isUpToDate ? 'rgba(16,185,129,0.2)' : 'rgba(251,191,36,0.2)'}`,
+                fontSize: '0.875rem',
+              }}>
+                {isUpToDate ? (
+                  <>
+                    <CheckCircle size={18} />
+                    <span>Excelente! Infraestrutura rodando a última versão disponível. <strong>v{latestVersion}</strong></span>
+                  </>
+                ) : (
+                  <>
+                    <DownloadCloud size={18} />
+                    <div>
+                      <strong>Nova versão disponível: v{latestVersion}</strong>
+                      <div style={{ fontSize: '0.8rem', marginTop: '0.2rem', color: 'var(--text-muted)' }}>
+                        Clique em "Atualizar Agora" para aplicar as correções automáticas via O.T.A.
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
+      </div>
     </div>
   );
 };

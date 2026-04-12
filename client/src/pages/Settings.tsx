@@ -39,20 +39,25 @@ export const Settings = () => {
   const startPollingForRestart = () => {
     let attempts = 0;
     const maxAttempts = 40; // 40 × 5s = 200s max wait
+    const token = localStorage.getItem('token');
 
     pollRef.current = setInterval(async () => {
       attempts++;
       try {
-        const res = await fetch('/api/update/status', { signal: AbortSignal.timeout(3000) });
-        if (res.ok) {
-          // Server is back online!
-          clearInterval(pollRef.current!);
-          clearInterval(countdownRef.current!);
-          setUpdateLog('✅ Servidor reiniciado com sucesso! Recarregando...');
-          setTimeout(() => window.location.reload(), 1500);
-        }
+        // Any HTTP response means the server is back online.
+        // We send the token so it works whether the route is protected or public.
+        // A network error (fetch throws) means the server is still down.
+        await fetch('/api/update/status', {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+          signal: AbortSignal.timeout(3000)
+        });
+        // If we reach here, server responded (any status code) = server is back!
+        clearInterval(pollRef.current!);
+        clearInterval(countdownRef.current!);
+        setUpdateLog('✅ Servidor reiniciado com sucesso! Recarregando...');
+        setTimeout(() => window.location.reload(), 1500);
       } catch {
-        // Server still offline — normal during restart, keep polling
+        // Network error = server still offline, keep polling
         setUpdateLog(`⏳ Aguardando servidor reiniciar... (tentativa ${attempts}/${maxAttempts})`);
       }
 

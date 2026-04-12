@@ -3,7 +3,7 @@ import { SocketContext } from '../contexts/SocketContext';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '../store/workspaceStore';
-import { Server, Play, Eye, Plus, Trash2, X, Edit2 } from 'lucide-react';
+import { Server, Play, Eye, Plus, Trash2, X, Edit2, Radio } from 'lucide-react';
 
 export const Dashboard = () => {
   const [hosts, setHosts] = useState<any[]>([]);
@@ -131,87 +131,137 @@ export const Dashboard = () => {
 
   return (
     <div className="fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: 0 }}>
-          <Server size={28} color="var(--primary)" /> Gestão de Servidores
+      {/* Page Header */}
+      <div className="page-header">
+        <h1 className="page-title">
+          <Server size={26} />
+          Gestão de Servidores
         </h1>
+        {user?.role === 'admin' && (
+          <button className="button" onClick={() => {
+            setEditingHostId(null);
+            setNewHost({ name: '', host: '', port: 22, username: '', password: '', privateKey: '', sectorId: '' });
+            setIsModalOpen(true);
+          }}>
+            <Plus size={16} /> Novo Servidor
+          </button>
+        )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.5rem' }}>
+
         {/* Servers List */}
-        <div className="card glass fade-in">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.25rem', margin: 0 }}>
-              <Server size={20} color="var(--primary)" /> Meus Servidores
+        <div className="card glass">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', margin: 0, fontWeight: 600 }}>
+              <Server size={18} color="var(--primary)" />
+              Meus Servidores
+              <span className="badge badge-primary" style={{ marginLeft: '0.25rem' }}>{hosts.length}</span>
             </h2>
-            {user?.role === 'admin' && (
-              <button className="button" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }} onClick={() => {
-                setEditingHostId(null);
-                setNewHost({ name: '', host: '', port: 22, username: '', password: '', privateKey: '', sectorId: '' });
-                setIsModalOpen(true);
-              }}>
-                <Plus size={16} /> Adicionar
-              </button>
-            )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
-            {hosts.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Nenhum servidor cadastrado.</p> : null}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+            {hosts.length === 0 ? (
+              <div style={{
+                textAlign: 'center', padding: '2rem 1rem',
+                color: 'var(--text-muted)', fontSize: '0.875rem',
+                border: '1px dashed var(--border-light)', borderRadius: '8px',
+              }}>
+                <Server size={28} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                <p style={{ margin: 0 }}>Nenhum servidor cadastrado</p>
+              </div>
+            ) : null}
+
             {hosts.map(host => {
               const activeTab = tabs.find(t => t.title === host.name);
               return (
-              <div key={host.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '0.75rem 1rem', borderRadius: '8px' }}>
-                <div>
-                  <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {host.name}
-                    {host.sectorName && (
-                      <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem', background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--primary)', borderRadius: '4px', border: '1px solid rgba(var(--primary-rgb), 0.2)' }}>
-                        {host.sectorName}
-                      </span>
+                <div key={host.id} className="host-row">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {host.name}
+                      {host.sectorName && (
+                        <span className="badge badge-primary" style={{ fontSize: '0.6rem' }}>{host.sectorName}</span>
+                      )}
+                      {activeTab && <span className="badge badge-success">ativo</span>}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem', fontFamily: 'var(--font-mono)' }}>
+                      {host.username}@{host.host}:{host.port}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center', flexShrink: 0 }}>
+                    {activeTab ? (
+                      <button
+                        className="button button-outline"
+                        style={{ padding: '0.4rem 0.875rem', fontSize: '0.8rem', borderColor: 'var(--success)', color: 'var(--success)' }}
+                        onClick={() => { setActiveTab(activeTab.id); navigate('/workspace'); }}
+                      >
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+                        Aberto
+                      </button>
+                    ) : (
+                      <button
+                        className="button"
+                        style={{ padding: '0.4rem 0.875rem', fontSize: '0.8rem' }}
+                        onClick={() => handleStartSession(host.id)}
+                      >
+                        <Play size={13} fill="currentColor" /> Conectar
+                      </button>
+                    )}
+                    {user?.role === 'admin' && (
+                      <>
+                        <button className="icon-btn" onClick={() => handleEditClick(host)} title="Editar">
+                          <Edit2 size={15} />
+                        </button>
+                        <button className="icon-btn danger" onClick={() => handleDeleteHost(host.id)} title="Remover">
+                          <Trash2 size={15} />
+                        </button>
+                      </>
                     )}
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{host.username}@{host.host}:{host.port}</div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  {activeTab ? (
-                    <button className="button button-outline" style={{ padding: '0.5rem 1rem', borderColor: 'var(--success)' }} onClick={() => { setActiveTab(activeTab.id); navigate('/workspace'); }}>
-                      <span style={{width: 8, height: 8, borderRadius: '50%', background: 'var(--success)'}}/> Aberto
-                    </button>
-                  ) : (
-                    <button className="button" style={{ padding: '0.5rem 1rem' }} onClick={() => handleStartSession(host.id)}>
-                      <Play size={14} /> Conectar
-                    </button>
-                  )}
-                  {user?.role === 'admin' && (
-                    <>
-                      <button className="icon-btn" style={{ color: 'var(--text-main)' }} onClick={() => handleEditClick(host)} title="Editar Servidor">
-                        <Edit2 size={16} />
-                      </button>
-                      <button className="icon-btn danger" onClick={() => handleDeleteHost(host.id)} title="Remover Servidor">
-                        <Trash2 size={16} />
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            )})}
+              );
+            })}
           </div>
         </div>
 
-        {/* Active Team Sessions */}
-        <div className="card glass fade-in" style={{ animationDelay: '0.1s' }}>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.25rem' }}>
-            <Eye size={20} color="var(--success)" /> Sessões da Equipe
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
-            {activeSessions.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>Nenhuma sessão ativa no momento.</p> : null}
+        {/* Active Sessions */}
+        <div className="card glass" style={{ animationDelay: '0.08s' }}>
+          <div style={{ marginBottom: '1rem' }}>
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', margin: 0, fontWeight: 600 }}>
+              <Radio size={18} color="var(--success)" />
+              Sessões da Equipe
+              {activeSessions.length > 0 && (
+                <span className="badge badge-success" style={{ marginLeft: '0.25rem' }}>{activeSessions.length} live</span>
+              )}
+            </h2>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+            {activeSessions.length === 0 ? (
+              <div style={{
+                textAlign: 'center', padding: '2rem 1rem',
+                color: 'var(--text-muted)', fontSize: '0.875rem',
+                border: '1px dashed var(--border-light)', borderRadius: '8px',
+              }}>
+                <Eye size={28} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                <p style={{ margin: 0 }}>Nenhuma sessão ativa no momento</p>
+              </div>
+            ) : null}
+
             {activeSessions.map(session => (
-              <div key={session.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '0.75rem 1rem', borderRadius: '8px' }}>
+              <div key={session.id} className="session-row">
                 <div>
-                  <div style={{ fontWeight: 500 }}>{session.hostName}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--success)' }}>Iniciado por: {session.startedBy}</div>
+                  <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{session.hostName}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--success)', marginTop: '0.15rem', fontFamily: 'var(--font-mono)' }}>
+                    ● iniciado por {session.startedBy}
+                  </div>
                 </div>
-                <button className="button button-outline" style={{ padding: '0.5rem 1rem' }} onClick={() => handleJoinSession(session.id)}>
-                  Assistir
+                <button
+                  className="button button-outline"
+                  style={{ padding: '0.4rem 0.875rem', fontSize: '0.8rem', borderColor: 'var(--success)', color: 'var(--success)' }}
+                  onClick={() => handleJoinSession(session.id)}
+                >
+                  <Eye size={13} /> Assistir
                 </button>
               </div>
             ))}
@@ -225,20 +275,20 @@ export const Dashboard = () => {
           <div className="modal fade-in" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">
-                <Server size={20} color="var(--primary)" /> 
+                <Server size={18} color="var(--primary)" />
                 {editingHostId ? 'Editar Servidor SSH' : 'Adicionar Servidor SSH'}
               </h3>
               <button className="icon-btn" onClick={() => setIsModalOpen(false)}>
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
-            
+
             <form onSubmit={handleAddHost}>
               <div className="form-group">
                 <label className="form-label">Setor</label>
-                <select 
-                  className="input" 
-                  value={newHost.sectorId} 
+                <select
+                  className="input"
+                  value={newHost.sectorId}
                   onChange={e => setNewHost({...newHost, sectorId: e.target.value})}
                   style={{ appearance: 'auto' }}
                 >
@@ -255,7 +305,7 @@ export const Dashboard = () => {
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div className="form-group" style={{ flex: 3 }}>
                   <label className="form-label">Endereço IP / Host</label>
-                  <input className="input" required placeholder="192.168.1.100 ou ec2.aws.com" value={newHost.host} onChange={e => setNewHost({...newHost, host: e.target.value})} />
+                  <input className="input" required placeholder="192.168.1.100" value={newHost.host} onChange={e => setNewHost({...newHost, host: e.target.value})} />
                 </div>
                 <div className="form-group" style={{ flex: 1 }}>
                   <label className="form-label">Porta</label>
@@ -274,8 +324,8 @@ export const Dashboard = () => {
                 <label className="form-label">Chave Privada SSH {editingHostId ? '(Deixe em branco para manter)' : '(Opcional)'}</label>
                 <textarea className="input" placeholder="-----BEGIN RSA PRIVATE KEY-----..." value={newHost.privateKey} onChange={e => setNewHost({...newHost, privateKey: e.target.value})} />
               </div>
-              
-              <button className="button" style={{ width: '100%', marginTop: '1rem' }} type="submit">
+
+              <button className="button" style={{ width: '100%', marginTop: '0.5rem', padding: '0.75rem' }} type="submit">
                 {editingHostId ? 'Salvar Alterações' : 'Cadastrar Servidor'}
               </button>
             </form>

@@ -4,7 +4,7 @@ import { SocketContext } from '../contexts/SocketContext';
 import { AuthContext } from '../contexts/AuthContext';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { TerminalBlock } from '../components/TerminalBlock';
-import { X, ArrowLeft, Plus, Terminal } from 'lucide-react';
+import { X, ArrowLeft, Terminal } from 'lucide-react';
 
 export const Workspace = () => {
   const [params] = useSearchParams();

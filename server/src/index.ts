@@ -4,7 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
-import { db } from './db/database'; // Using db for permitted sectors
+import { db } from './db/database';
 import authRoutes from './routes/authRoutes';
 import hostRoutes from './routes/hostRoutes';
 import userRoutes from './routes/userRoutes';
@@ -36,25 +36,31 @@ const io = new Server(server, {
   }
 });
 
-// Broadcast helper for filtered sessions
+// Broadcast helper for filtered sessions with Real-time DB sync
 const broadcastSessions = async () => {
   const sockets = await io.fetchSockets();
   const allSessions = getActiveSessionsList();
 
-  sockets.forEach(s => {
+  for (const s of sockets) {
+    const userId = s.data.user?.id;
     const userRole = s.data.user?.role;
     const isAdmin = userRole === 'admin' || userRole === 'Administrador';
-    const permittedSectors = s.data.permittedSectors || [];
 
-    const filtered = isAdmin 
-      ? allSessions 
-      : allSessions.filter(sess => permittedSectors.includes(sess.sectorId));
-    
-    s.emit('active_sessions_update', filtered);
-  });
+    if (isAdmin) {
+      // Admins see all sessions immediately
+      s.emit('active_sessions_update', allSessions);
+    } else if (userId) {
+      // Re-query database for other users to catch permission changes in real-time
+      db.all("SELECT sectorId FROM user_sectors WHERE userId = ?", [userId], (err, rows: any) => {
+        const refreshedSectors = rows ? rows.map((r: any) => r.sectorId) : [];
+        const filtered = allSessions.filter(sess => refreshedSectors.includes(sess.sectorId));
+        s.emit('active_sessions_update', filtered);
+      });
+    }
+  }
 };
 
-// Socket.IO authentication and sector loading middleware
+// Socket.IO authentication middleware (runs once at connection)
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
   if (!token) return next(new Error('Authentication error'));
@@ -62,44 +68,36 @@ io.use((socket, next) => {
   jwt.verify(token, process.env.JWT_SECRET || 'portal-ssh-secret-dev', (err: any, decoded: any) => {
     if (err) return next(new Error('Authentication error'));
     socket.data.user = decoded;
-    
-    // Load permitted sectors for the user
-    db.all("SELECT sectorId FROM user_sectors WHERE userId = ?", [decoded.id], (err, rows: any) => {
-      socket.data.permittedSectors = rows ? rows.map((r: any) => r.sectorId) : [];
-      next();
-    });
+    next();
   });
 });
 
 io.on('connection', (socket) => {
-  const username = socket.data.user.username;
-  const userRole = socket.data.user.role;
-  const permittedSectors = socket.data.permittedSectors || [];
+  const username = socket.data.user?.username;
+  const userRole = socket.data.user?.role;
+
+  console.log(`Client connected: ${socket.id} user: ${username}`);
+
+  // Initial fetch from DB for newly connected user
+  const userId = socket.data.user?.id;
   const isAdmin = userRole === 'admin' || userRole === 'Administrador';
 
-  console.log(`Client connected: ${socket.id} user: ${username} role: ${userRole}`);
-
-  // Send initial filtered sessions
-  const initialSessions = isAdmin 
-    ? getActiveSessionsList() 
-    : getActiveSessionsList().filter(sess => permittedSectors.includes(sess.sectorId));
-  socket.emit('active_sessions_update', initialSessions);
-
-  socket.on('get_active_sessions', () => {
-    const list = isAdmin 
-      ? getActiveSessionsList() 
-      : getActiveSessionsList().filter(sess => permittedSectors.includes(sess.sectorId));
-    socket.emit('active_sessions_update', list);
-  });
+  if (isAdmin) {
+    socket.emit('active_sessions_update', getActiveSessionsList());
+  } else if (userId) {
+    db.all("SELECT sectorId FROM user_sectors WHERE userId = ?", [userId], (err, rows: any) => {
+      const sectors = rows ? rows.map((r: any) => r.sectorId) : [];
+      const filtered = getActiveSessionsList().filter(sess => sectors.includes(sess.sectorId));
+      socket.emit('active_sessions_update', filtered);
+    });
+  }
 
   socket.on('start_session', (payload) => {
     if (userRole === 'Visualizador') {
-      return socket.emit('ssh_error', 'Você não tem permissão para iniciar sessões.');
+      return socket.emit('ssh_error', 'Sem permissão');
     }
     const { hostId } = payload;
     startSSHConnection(hostId, socket, io, username);
-    
-    // Trigger broadcast after short delay to allow session to be added
     setTimeout(broadcastSessions, 1000);
   });
 
@@ -108,13 +106,20 @@ io.on('connection', (socket) => {
     const session = activeSessions[sessionId];
     
     if (session) {
-      // Permission check for joining
-      if (!isAdmin && !permittedSectors.includes(session.sectorId)) {
-        return socket.emit('ssh_error', 'Você não tem permissão para acessar este servidor.');
+      // Backend check before allowing join
+      if (isAdmin) {
+        socket.join(`session_${sessionId}`);
+        socket.emit('session_joined', { sessionId, hostName: session.hostName });
+      } else {
+        db.get("SELECT 1 FROM user_sectors WHERE userId = ? AND sectorId = ?", [userId, session.sectorId], (err, row) => {
+          if (row) {
+            socket.join(`session_${sessionId}`);
+            socket.emit('session_joined', { sessionId, hostName: session.hostName });
+          } else {
+            socket.emit('ssh_error', 'Setor não autorizado.');
+          }
+        });
       }
-      
-      socket.join(`session_${sessionId}`);
-      socket.emit('session_joined', { sessionId, hostName: session.hostName });
     } else {
       socket.emit('ssh_error', 'Session not found');
     }
@@ -122,9 +127,7 @@ io.on('connection', (socket) => {
 
   socket.on('close_session', (payload) => {
     const { sessionId } = payload;
-    if (userRole === 'Visualizador') {
-      return socket.emit('ssh_error', 'Você não tem permissão para fechar sessões.');
-    }
+    if (userRole === 'Visualizador') return;
     const session = activeSessions[sessionId];
     if (session) {
       session.ssh.end();
@@ -135,12 +138,9 @@ io.on('connection', (socket) => {
 
   socket.on('ssh_input', (payload) => {
     if (userRole === 'Visualizador') return;
-    
     const { sessionId, data } = payload;
     const session = activeSessions[sessionId];
-    
     if (session && session.stream) {
-      // Double check permission for input safely (optional as join is already restricted)
       session.stream.write(data);
     }
   });
@@ -156,9 +156,6 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
-    // Note: If no one is watching, session owner disconnect might not close it 
-    // depending on the policy. Here we keep sessions open even if owner disconnects.
-    broadcastSessions();
   });
 });
 

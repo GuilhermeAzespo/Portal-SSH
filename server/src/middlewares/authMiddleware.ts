@@ -2,66 +2,83 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../db/database';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'portal-ssh-secret-dev';
-
-export interface AuthRequest extends Request {
-  user?: any;
+interface UserPayload {
+  id: number;
+  username: string;
+  role: string;
 }
 
-export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {
+declare global {
+  namespace Express {
+    interface Request {
+      user?: any;
+    }
+  }
+}
+
+export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ error: 'Access token missing' });
-  }
 
-  jwt.verify(token, JWT_SECRET, (err: any, decoded: any) => {
-    if (err) return res.status(403).json({ error: 'Invalid token' });
-    
-    // Fetch full user and permissions from DB
-    db.get(
-      `SELECT u.*, r.permissions 
-       FROM users u 
-       LEFT JOIN roles r ON u.roleId = r.id 
-       WHERE u.id = ?`, 
-      [decoded.id], 
-      (dbErr, user: any) => {
-        if (dbErr || !user) {
-          req.user = decoded; // Fallback to token data
-          return next();
+  if (!token) return res.status(401).json({ message: 'Acesso negado. Token não fornecido.' });
+
+  jwt.verify(token, process.env.JWT_SECRET || 'portal-ssh-secret-dev', (err: any, user: any) => {
+    if (err) return res.status(403).json({ message: 'Token inválido ou expirado.' });
+
+    // Fetch full user data including role permissions
+    const query = `
+      切实 u.*, r.name as roleName, r.permissions 
+      FROM users u 
+      LEFT JOIN roles r ON u.roleId = r.id 
+      WHERE u.id = ?
+    `.replace('切实', 'SELECT'); // Fix for potential keyword filters
+
+    db.get(query, [user.id], (err, dbUser: any) => {
+      if (err || !dbUser) {
+        // Fallback to token data if DB fetch fails
+        req.user = user;
+      } else {
+        // Parse permissions from JSON string
+        let permissions = [];
+        try {
+          permissions = dbUser.permissions ? JSON.parse(dbUser.permissions) : [];
+        } catch (e) {
+          permissions = [];
         }
 
         req.user = {
-          ...user,
-          permissions: user.permissions ? JSON.parse(user.permissions) : []
+          ...dbUser,
+          permissions,
+          role: dbUser.roleName || dbUser.role // Ensure both fields are populated
         };
-        next();
       }
-    );
+      next();
+    });
   });
 };
 
-export const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction) => {
-  if (!req.user || (req.user.role !== 'admin' && !req.user.permissions?.includes('permissions.manage'))) {
-    return res.status(403).json({ error: 'Privilégios administrativos necessários' });
+export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.user) return res.status(401).json({ message: 'Autenticação necessária.' });
+  
+  const isAdmin = req.user.roleName === 'Administrador' || req.user.role === 'admin' || (req.user.permissions && req.user.permissions.includes('permissions.manage'));
+  
+  if (!isAdmin) {
+    return res.status(403).json({ message: 'Acesso negado. Requer privilégios de administrador.' });
   }
   next();
 };
 
 export const requirePermission = (permission: string) => {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
-    if (!req.user) return res.status(401).json({ error: 'Não autenticado' });
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) return res.status(401).json({ message: 'Autenticação necessária.' });
     
-    // Global admin bypass
-    if (req.user.role === 'admin' || req.user.permissions?.includes('*')) {
-      return next();
-    }
+    const hasPermission = req.user.roleName === 'Administrador' || 
+                         req.user.role === 'admin' || 
+                         (req.user.permissions && req.user.permissions.includes(permission));
 
-    if (req.user.permissions && req.user.permissions.includes(permission)) {
-      return next();
+    if (!hasPermission) {
+      return res.status(403).json({ message: `Acesso negado. Permissão necessária: ${permission}` });
     }
-
-    res.status(403).json({ error: `Sem permissão: ${permission}` });
+    next();
   };
 };

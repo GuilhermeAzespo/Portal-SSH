@@ -1,6 +1,7 @@
 import { useEffect, useContext } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { SocketContext } from '../contexts/SocketContext';
+import { AuthContext } from '../contexts/AuthContext';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { TerminalBlock } from '../components/TerminalBlock';
 import { X, ArrowLeft, Plus, Terminal } from 'lucide-react';
@@ -9,7 +10,10 @@ export const Workspace = () => {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { socket } = useContext(SocketContext);
+  const { user } = useContext(AuthContext);
   const { tabs, activeTabId, addTab, removeTab, setActiveTab } = useWorkspaceStore();
+
+  const isViewer = user?.role === 'Visualizador';
 
   useEffect(() => {
     if (!socket) return;
@@ -23,7 +27,7 @@ export const Workspace = () => {
     };
 
     const handleSessionJoined = (payload: any) => {
-      addTab({ id: payload.sessionId, title: payload.hostName + ' (View)', type: 'spectator' });
+      addTab({ id: payload.sessionId, title: payload.hostName + (isViewer ? ' (View)' : ''), type: isViewer ? 'spectator' : 'active' });
       navigate('/workspace', { replace: true });
     };
 
@@ -37,6 +41,11 @@ export const Workspace = () => {
     socket.on('ssh_error', handleError);
 
     if (startHostId) {
+      if (isViewer) {
+        alert('Você não tem permissão para iniciar sessões SSH.');
+        navigate('/dashboard');
+        return;
+      }
       socket.emit('start_session', { hostId: Number(startHostId) });
     } else if (joinSessionId) {
       socket.emit('join_session', { sessionId: joinSessionId });
@@ -49,7 +58,7 @@ export const Workspace = () => {
       socket.off('session_joined', handleSessionJoined);
       socket.off('ssh_error', handleError);
     };
-  }, [socket, params, navigate]);
+  }, [socket, params, navigate, isViewer]);
 
   if (tabs.length === 0) {
     return (
@@ -168,26 +177,7 @@ export const Workspace = () => {
           })}
         </div>
 
-        {/* New tab button */}
-        <button
-          onClick={() => navigate('/dashboard')}
-          title="Nova conexão"
-          style={{
-            display: 'flex', alignItems: 'center', gap: '0.25rem',
-            padding: '0 0.875rem',
-            background: 'transparent',
-            border: 'none',
-            borderLeft: '1px solid var(--border-light)',
-            color: 'var(--text-muted)',
-            cursor: 'pointer',
-            transition: 'color 0.15s',
-            flexShrink: 0,
-          }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-        >
-          <Plus size={16} />
-        </button>
+        {/* New tab button moved to Dashboard approach for consistency */}
       </div>
 
       {/* Terminal panels */}
@@ -197,6 +187,7 @@ export const Workspace = () => {
             key={tab.id}
             sessionId={tab.id}
             isActive={activeTabId === tab.id}
+            readOnly={isViewer}
           />
         ))}
       </div>

@@ -11,14 +11,35 @@ export const db = new sqlite3.Database(dbPath, (err) => {
     
     // Create necessary tables
     db.serialize(() => {
-      // Sectors table
+      // 1. Roles table
+      db.run(`CREATE TABLE IF NOT EXISTS roles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL,
+        description TEXT,
+        permissions TEXT NOT NULL -- Store as JSON array
+      )`);
+
+      // 2. Sectors table
       db.run(`CREATE TABLE IF NOT EXISTS sectors (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE NOT NULL,
         description TEXT
       )`);
 
-      // User-Sector junction table (Many-to-Many)
+      // 3. Users table
+      db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE,
+        password TEXT NOT NULL,
+        firstName TEXT,
+        lastName TEXT,
+        role TEXT NOT NULL DEFAULT 'user',
+        roleId INTEGER,
+        FOREIGN KEY (roleId) REFERENCES roles(id)
+      )`);
+
+      // 4. User-Sector junction table
       db.run(`CREATE TABLE IF NOT EXISTS user_sectors (
         userId INTEGER,
         sectorId INTEGER,
@@ -27,15 +48,7 @@ export const db = new sqlite3.Database(dbPath, (err) => {
         FOREIGN KEY (sectorId) REFERENCES sectors(id) ON DELETE CASCADE
       )`);
 
-      // Roles table
-      db.run(`CREATE TABLE IF NOT EXISTS roles (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL,
-        description TEXT,
-        permissions TEXT NOT NULL -- Store as JSON array
-      )`);
-
-      // Default roles seeding and Migration
+      // Seed Roles & Run Migrations
       db.get("SELECT COUNT(*) AS count FROM roles", (err, row: any) => {
         if (row && row.count === 0) {
           const defaultRoles = [
@@ -51,18 +64,35 @@ export const db = new sqlite3.Database(dbPath, (err) => {
               completed++;
               if (completed === defaultRoles.length) {
                 stmt.finalize();
-                console.log('Default roles created. Running migrations...');
-                runMigrations();
+                console.log('Default roles created. Seeding users...');
+                seedUsersAndMigrate();
               }
             });
           });
         } else {
-          runMigrations();
+          seedUsersAndMigrate();
         }
       });
 
-      function runMigrations() {
-        // Migration: Map old 'role' string to 'roleId'
+      function seedUsersAndMigrate() {
+        // Default admin user
+        db.get("SELECT COUNT(*) AS count FROM users WHERE username = 'admin'", (err, row: any) => {
+          const defaultPassword = '$2b$10$mb6cDaqTdIJUtdc3R92PbeauKkak8kQbJIVAIKa2M1UplWn8nr9ca';
+          if (row && row.count === 0) {
+            db.run(`INSERT INTO users (username, password, role) VALUES ('admin', ?, 'admin')`, [defaultPassword], (err) => {
+              if (!err) {
+                console.log('Admin user created. Applying migrations...');
+                applyMigrations();
+              }
+            });
+          } else {
+            applyMigrations();
+          }
+        });
+      }
+
+      function applyMigrations() {
+        // Migration: Map old 'role' string and roleName to 'roleId'
         db.get("SELECT id FROM roles WHERE name = 'Administrador'", (err, role: any) => {
           if (role) {
             db.run(`UPDATE users SET roleId = ? WHERE (role = 'admin' OR role = 'Administrador') AND roleId IS NULL`, [role.id]);
@@ -74,38 +104,8 @@ export const db = new sqlite3.Database(dbPath, (err) => {
             db.run(`UPDATE users SET roleId = ? WHERE (role = 'user' OR role = 'Visualizador') AND roleId IS NULL`, [role.id]);
           }
         });
+        console.log('Migrations completed successfully.');
       }
-
-      // Users table
-      db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        email TEXT UNIQUE,
-        password TEXT NOT NULL,
-        firstName TEXT,
-        lastName TEXT,
-        role TEXT NOT NULL DEFAULT 'user',
-        roleId INTEGER,
-        FOREIGN KEY (roleId) REFERENCES roles(id)
-      )`);
-
-      // Default admin user
-      db.get("SELECT COUNT(*) AS count FROM users WHERE username = 'admin'", (err, row: any) => {
-        if (row && row.count === 0) {
-          const defaultPassword = '$2b$10$mb6cDaqTdIJUtdc3R92PbeauKkak8kQbJIVAIKa2M1UplWn8nr9ca';
-          db.run(`INSERT INTO users (username, password, role) VALUES ('admin', ?, 'admin')`, [defaultPassword]);
-        }
-      });
-
-      // SQLite migrations (column additions)
-      db.each("PRAGMA table_info(users)", (err, column: any) => {
-        const columns = ['email', 'firstName', 'lastName', 'roleId'];
-        if (columns.includes(column.name)) {
-          columns.splice(columns.indexOf(column.name), 1);
-        }
-      });
-      
-      // We rely on CREATE TABLE IF NOT EXISTS and the runMigrations logic above.
     });
   }
 });

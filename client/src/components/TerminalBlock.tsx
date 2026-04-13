@@ -7,9 +7,10 @@ import 'xterm/css/xterm.css';
 interface TerminalBlockProps {
   sessionId: string;
   isActive: boolean;
+  readOnly?: boolean;
 }
 
-export const TerminalBlock = ({ sessionId, isActive }: TerminalBlockProps) => {
+export const TerminalBlock = ({ sessionId, isActive, readOnly = false }: TerminalBlockProps) => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -19,12 +20,14 @@ export const TerminalBlock = ({ sessionId, isActive }: TerminalBlockProps) => {
     if (!terminalRef.current) return;
 
     const term = new Terminal({
-      cursorBlink: true,
+      cursorBlink: !readOnly,
       fontFamily: 'Fira Code, monospace',
       theme: {
         background: '#151A23',
-        foreground: '#F3F4F6'
-      }
+        foreground: '#F3F4F6',
+        cursor: readOnly ? 'rgba(0,0,0,0)' : '#00D4AA'
+      },
+      disableStdin: readOnly
     });
 
     const fitAddon = new FitAddon();
@@ -38,7 +41,6 @@ export const TerminalBlock = ({ sessionId, isActive }: TerminalBlockProps) => {
 
     if (socket) {
       const handleSshData = (payload: any) => {
-        // We will update backend to send { sessionId, data }
         if (payload.sessionId === sessionId) {
           term.write(payload.data);
         }
@@ -46,13 +48,17 @@ export const TerminalBlock = ({ sessionId, isActive }: TerminalBlockProps) => {
 
       socket.on('ssh_data', handleSshData);
 
-      term.onData(data => {
-        socket.emit('ssh_input', { sessionId, data });
-      });
+      if (!readOnly) {
+        term.onData(data => {
+          socket.emit('ssh_input', { sessionId, data });
+        });
+      }
 
       const handleResize = () => {
         fitAddon.fit();
-        socket.emit('resize', { sessionId, cols: term.cols, rows: term.rows });
+        if (!readOnly) {
+          socket.emit('resize', { sessionId, cols: term.cols, rows: term.rows });
+        }
       };
 
       window.addEventListener('resize', handleResize);
@@ -63,7 +69,7 @@ export const TerminalBlock = ({ sessionId, isActive }: TerminalBlockProps) => {
         term.dispose();
       };
     }
-  }, [sessionId, socket]);
+  }, [sessionId, socket, readOnly]);
 
   // Fit again when active changes
   useEffect(() => {
@@ -73,15 +79,37 @@ export const TerminalBlock = ({ sessionId, isActive }: TerminalBlockProps) => {
   }, [isActive]);
 
   return (
-    <div 
-      style={{ 
-        height: '100%', 
-        width: '100%', 
-        display: isActive ? 'block' : 'none',
-        background: '#151A23',
-        padding: '8px'
-      }} 
-      ref={terminalRef} 
-    />
+    <div style={{ position: 'relative', height: '100%', width: '100%', display: isActive ? 'block' : 'none' }}>
+      {readOnly && (
+        <div style={{
+          position: 'absolute',
+          top: '12px',
+          right: '24px',
+          zIndex: 10,
+          background: 'rgba(234, 179, 8, 0.1)',
+          color: '#EAB308',
+          padding: '4px 10px',
+          borderRadius: '4px',
+          fontSize: '0.65rem',
+          textTransform: 'uppercase',
+          fontWeight: 600,
+          border: '1px solid rgba(234, 179, 8, 0.2)',
+          pointerEvents: 'none',
+          backdropFilter: 'blur(4px)',
+          fontFamily: 'var(--font-mono)'
+        }}>
+          Apenas Leitura
+        </div>
+      )}
+      <div 
+        style={{ 
+          height: '100%', 
+          width: '100%', 
+          background: '#151A23',
+          padding: '8px'
+        }} 
+        ref={terminalRef} 
+      />
+    </div>
   );
 };

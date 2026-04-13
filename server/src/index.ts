@@ -50,7 +50,8 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
   const username = socket.data.user.username;
-  console.log(`Client connected: ${socket.id} user: ${username}`);
+  const userRole = socket.data.user.role;
+  console.log(`Client connected: ${socket.id} user: ${username} role: ${userRole}`);
 
   // Send initial list of sessions
   socket.emit('active_sessions_update', getActiveSessionsList());
@@ -60,6 +61,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('start_session', (payload) => {
+    // Basic permission check: viewers shouldn't be starting new sessions normally,
+    // but the join_session is their primary path. Here we prevent them from starting any new SSH streams.
+    if (userRole === 'Visualizador') {
+      return socket.emit('ssh_error', 'Você não tem permissão para iniciar sessões.');
+    }
     const { hostId } = payload;
     startSSHConnection(hostId, socket, io, username);
   });
@@ -76,6 +82,11 @@ io.on('connection', (socket) => {
 
   socket.on('close_session', (payload) => {
     const { sessionId } = payload;
+    // Only administrators or the session owner should close it.
+    // For now, we block Visualizador from closing sessions.
+    if (userRole === 'Visualizador') {
+      return socket.emit('ssh_error', 'Você não tem permissão para fechar sessões.');
+    }
     const session = activeSessions[sessionId];
     if (session) {
       session.ssh.end();
@@ -85,6 +96,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('ssh_input', (payload) => {
+    if (userRole === 'Visualizador') return; // Silent block for safety
+    
     const { sessionId, data } = payload;
     const session = activeSessions[sessionId];
     if (session && session.stream) {
@@ -93,6 +106,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('resize', (payload) => {
+    if (userRole === 'Visualizador') return;
+    
     const { sessionId, cols, rows } = payload;
     const session = activeSessions[sessionId];
     if (session && session.stream) {

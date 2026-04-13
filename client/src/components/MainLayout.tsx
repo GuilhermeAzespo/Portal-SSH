@@ -1,7 +1,7 @@
 import { useState, useContext } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
-import { LayoutDashboard, Users, Shield, Settings, LogOut, ChevronDown, ChevronUp } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, Settings, LogOut, ChevronDown, ChevronUp , Layers} from 'lucide-react';
 
 export const MainLayout = () => {
   const { user, logout } = useContext(AuthContext);
@@ -16,6 +16,7 @@ export const MainLayout = () => {
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
+    { path: '/sectors', label: 'Setores', icon: Layers, permission: 'sectors.view' },
     { path: '/users', label: 'Usuários', icon: Users, permission: 'users.view' },
     { path: '/permissions', label: 'Permissões', icon: Shield, permission: 'permissions.manage' },
     {
@@ -47,7 +48,7 @@ export const MainLayout = () => {
           <div className="sidebar-logo">{'>_'}</div>
           <div className="sidebar-brand">
             <h2 className="sidebar-title">Portal <span>SSH</span></h2>
-            <span className="sidebar-subtitle">v2.0.0 · secure shell</span>
+            <span className="sidebar-subtitle">2.3.0 · secure shell</span>
           </div>
         </div>
 

@@ -49,19 +49,19 @@ const broadcastSessions = async () => {
           const isSuperAdmin = userRoleName === 'Administrador';
 
 
-          const sectorIds = s.data.user?.sectorIds || [];
+          const sectorIds = (s.data.user?.sectorIds || []).map(Number);
           
           if (isSuperAdmin) {
                   s.emit('active_sessions_update', allSessions);
           } else if (userId) {
                   const filtered = allSessions.filter(sess => {
-                    // Unassigned sessions are private (admin only)
-                    if (sess.sectorId === null || sess.sectorId === undefined) return false;
-                    
-                    return sectorIds.some((rid: any) => String(rid) === String(sess.sectorId));
+                    const sid = Number(sess.sectorId);
+                    if (!sess.sectorId || isNaN(sid)) return false; 
+                    return sectorIds.includes(sid);
                   });
                   s.emit('active_sessions_update', filtered);
           }
+
 
     }
 };
@@ -87,19 +87,28 @@ io.on('connection', (socket) => {
 
         console.log(`Client connected: ${socket.id} user: ${username}`);
 
-        const sectorIds = socket.data.user?.sectorIds || [];
+        const sectorIds = (socket.data.user?.sectorIds || []).map(Number);
 
-        if (isSuperAdmin) {
-              socket.emit('active_sessions_update', getActiveSessionsList());
-        } else if (userId) {
-              const filtered = getActiveSessionsList().filter(sess => {
-                // Unassigned sessions are private (admin only)
-                if (sess.sectorId === null || sess.sectorId === undefined) return false;
-                
-                return sectorIds.some((rid: any) => String(rid) === String(sess.sectorId));
-              });
-              socket.emit('active_sessions_update', filtered);
-        }
+        const sendFilteredSessions = () => {
+              const all = getActiveSessionsList();
+              if (isSuperAdmin) {
+                    socket.emit('active_sessions_update', all);
+              } else if (userId) {
+                    const filtered = all.filter(sess => {
+                          const sid = Number(sess.sectorId);
+                          if (!sess.sectorId || isNaN(sid)) return false; 
+                          return sectorIds.includes(sid);
+                    });
+                    socket.emit('active_sessions_update', filtered);
+              }
+        };
+
+        sendFilteredSessions();
+
+        socket.on('get_active_sessions', () => {
+              sendFilteredSessions();
+        });
+
 
 
         socket.on('start_session', (payload) => {

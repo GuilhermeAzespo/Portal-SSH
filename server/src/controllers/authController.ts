@@ -36,28 +36,36 @@ export const login = (req: Request, res: Response) => {
 
       const permissions = user.permissions ? JSON.parse(user.permissions) : [];
 
-      const token = jwt.sign(
-        { 
-          id: user.id, 
-          username: user.username, 
-          role: user.role,
-          roleName: user.roleName || user.role // Ensure roleName is available
-        },
-        JWT_SECRET,
-        { expiresIn: '24h' }
-      );
+      // Get user sectors
+      db.all("SELECT sectorId FROM user_sectors WHERE userId = ?", [user.id], (err, rows: any) => {
+        const sectorIds = rows ? rows.map((r: any) => r.sectorId) : [];
 
+        const token = jwt.sign(
+          { 
+            id: user.id, 
+            username: user.username, 
+            role: user.role,
+            roleName: user.roleName || user.role,
+            sectorIds // Include sectorIds in JWT
+          },
+          JWT_SECRET,
+          { expiresIn: '24h' }
+        );
 
-      res.json({ 
-        token, 
-        user: { 
-          id: user.id, 
-          username: user.username, 
-          role: user.role,
-          roleName: user.roleName || user.role,
-          permissions: permissions
-        } 
+        res.json({ 
+          token, 
+          user: { 
+            id: user.id, 
+            username: user.username, 
+            email: user.email, 
+            role: user.role,
+            roleName: user.roleName || user.role,
+            permissions,
+            sectorIds
+          } 
+        });
       });
+
     });
 };
 

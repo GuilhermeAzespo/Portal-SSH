@@ -49,32 +49,20 @@ const broadcastSessions = async () => {
           const isSuperAdmin = userRole === 'admin' || userRoleName === 'Administrador';
 
 
-      if (isSuperAdmin) {
-              s.emit('active_sessions_update', allSessions);
-      } else if (userId) {
-              db.all("SELECT sectorId FROM user_sectors WHERE userId = ?", [userId], (err, rows: any) => {
-                        const refreshedSectors = rows ? rows.map((r: any) => r.sectorId) : [];
-                        
-                        console.log(`[Broadcast] Filtering for user ${userId} (${userRole}), Sectors: [${refreshedSectors}]`);
+          const sectorIds = s.data.user?.sectorIds || [];
+          
+          if (isSuperAdmin) {
+                  s.emit('active_sessions_update', allSessions);
+          } else if (userId) {
+                  const filtered = allSessions.filter(sess => {
+                    // Unassigned sessions are private (admin only)
+                    if (sess.sectorId === null || sess.sectorId === undefined) return false;
+                    
+                    return sectorIds.some((rid: any) => String(rid) === String(sess.sectorId));
+                  });
+                  s.emit('active_sessions_update', filtered);
+          }
 
-                        const filtered = allSessions.filter(sess => {
-                          const isMatch = refreshedSectors.some(rid => String(rid) === String(sess.sectorId));
-                          
-                          // Unassigned sessions are private (admin only)
-                          if (sess.sectorId === null || sess.sectorId === undefined) {
-                             console.log(`  - Session ${sess.hostName} (sector: NULL) -> HIDDEN (non-admin)`);
-                             return false;
-                          }
-                          
-                          console.log(`  - Session ${sess.hostName} (sector: ${sess.sectorId}) -> Match: ${isMatch}`);
-                          return isMatch;
-                        });
-                        
-                        s.emit('active_sessions_update', filtered);
-
-
-              });
-      }
     }
 };
 
@@ -99,32 +87,20 @@ io.on('connection', (socket) => {
 
         console.log(`Client connected: ${socket.id} user: ${username}`);
 
+        const sectorIds = socket.data.user?.sectorIds || [];
+
         if (isSuperAdmin) {
               socket.emit('active_sessions_update', getActiveSessionsList());
         } else if (userId) {
-              db.all("SELECT sectorId FROM user_sectors WHERE userId = ?", [userId], (err, rows: any) => {
-                      const sectors = rows ? rows.map((r: any) => r.sectorId) : [];
-                      
-                      console.log(`[Connection] Filtering for user ${userId} (${userRole}), Sectors: [${sectors}]`);
-
-                      const filtered = getActiveSessionsList().filter(sess => {
-                        const isMatch = sectors.some(rid => String(rid) === String(sess.sectorId));
-                        
-                        // Unassigned sessions are private (admin only)
-                        if (sess.sectorId === null || sess.sectorId === undefined) {
-                          console.log(`  - Session ${sess.hostName} (sector: NULL) -> HIDDEN (non-admin)`);
-                          return false;
-                        }
-                        
-                        console.log(`  - Session ${sess.hostName} (sector: ${sess.sectorId}) -> Match: ${isMatch}`);
-                        return isMatch;
-                      });
-                      
-                      socket.emit('active_sessions_update', filtered);
-
-
+              const filtered = getActiveSessionsList().filter(sess => {
+                // Unassigned sessions are private (admin only)
+                if (sess.sectorId === null || sess.sectorId === undefined) return false;
+                
+                return sectorIds.some((rid: any) => String(rid) === String(sess.sectorId));
               });
+              socket.emit('active_sessions_update', filtered);
         }
+
 
         socket.on('start_session', (payload) => {
               if (userRole === 'Visualizador') return socket.emit('ssh_error', 'Sem permiss

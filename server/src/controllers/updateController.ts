@@ -36,8 +36,9 @@ echo "--- rebuilding portal-ssh-client container ---" >> "$LOG" 2>&1
 #   Without this flag, Docker Compose resolves '.' in the volume mount as /app/host_source
 #   (container path) instead of /home/gui/Portal-SSH (host path), detecting a config
 #   difference and recreating the server, which then fails with SIGTERM.
-docker compose -p portal-ssh build --no-cache client >> "$LOG" 2>&1
-docker compose -p portal-ssh up -d --no-deps client >> "$LOG" 2>&1
+docker compose -p portal-ssh build --no-cache client server >> "$LOG" 2>&1
+docker compose -p portal-ssh up -d client server >> "$LOG" 2>&1
+
 
 echo "--- update done at $(date) ---" >> "$LOG" 2>&1
 `.trim();

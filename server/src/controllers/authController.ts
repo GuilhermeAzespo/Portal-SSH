@@ -37,10 +37,16 @@ export const login = (req: Request, res: Response) => {
       const permissions = user.permissions ? JSON.parse(user.permissions) : [];
 
       const token = jwt.sign(
-        { id: user.id, username: user.username, role: user.role },
+        { 
+          id: user.id, 
+          username: user.username, 
+          role: user.role,
+          roleName: user.roleName || user.role // Ensure roleName is available
+        },
         JWT_SECRET,
         { expiresIn: '24h' }
       );
+
 
       res.json({ 
         token, 

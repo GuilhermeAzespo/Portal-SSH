@@ -54,10 +54,14 @@ const broadcastSessions = async () => {
       } else if (userId) {
               db.all("SELECT sectorId FROM user_sectors WHERE userId = ?", [userId], (err, rows: any) => {
                         const refreshedSectors = rows ? rows.map((r: any) => r.sectorId) : [];
-                        const filtered = allSessions.filter(sess => 
-                                                                        refreshedSectors.some(rid => String(rid) === String(sess.sectorId))
-                                                                    );
+                        const filtered = allSessions.filter(sess => {
+                          // Unassigned sessions are private (admin only)
+                          if (sess.sectorId === null || sess.sectorId === undefined) return false;
+                          
+                          return refreshedSectors.some(rid => String(rid) === String(sess.sectorId));
+                        });
                         s.emit('active_sessions_update', filtered);
+
               });
       }
     }
@@ -89,10 +93,14 @@ io.on('connection', (socket) => {
         } else if (userId) {
               db.all("SELECT sectorId FROM user_sectors WHERE userId = ?", [userId], (err, rows: any) => {
                       const sectors = rows ? rows.map((r: any) => r.sectorId) : [];
-                      const filtered = getActiveSessionsList().filter(sess => 
-                                                                              sectors.some(rid => String(rid) === String(sess.sectorId))
-                                                                            );
+                      const filtered = getActiveSessionsList().filter(sess => {
+                        // Unassigned sessions are private (admin only)
+                        if (sess.sectorId === null || sess.sectorId === undefined) return false;
+                        
+                        return sectors.some(rid => String(rid) === String(sess.sectorId));
+                      });
                       socket.emit('active_sessions_update', filtered);
+
               });
         }
 

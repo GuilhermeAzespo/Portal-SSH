@@ -6,7 +6,8 @@ export interface ActiveSession {
   stream: any;
   hostName: string;
   startedBy: string;
-  sectorId: number; // Added sectorId for isolation
+  sectorId: number; 
+  sectorName?: string; // Added sectorName
 }
 
 export const activeSessions: { [key: string]: ActiveSession } = {};
@@ -22,18 +23,27 @@ export const getActiveSessionsList = () => {
     id, 
     hostName: activeSessions[id].hostName, 
     startedBy: activeSessions[id].startedBy,
-    sectorId: activeSessions[id].sectorId // Added sectorId
+    sectorId: activeSessions[id].sectorId,
+    sectorName: activeSessions[id].sectorName // Include sectorName
   }));
 };
 
+
 export const startSSHConnection = (hostId: number, socket: any, io: any, username: string) => {
-  db.get("SELECT * FROM hosts WHERE id = ?", [hostId], (err, host: any) => {
+  const query = `
+    SELECT h.*, s.name as sectorName 
+    FROM hosts h 
+    LEFT JOIN sectors s ON h.sectorId = s.id 
+    WHERE h.id = ?
+  `;
+  
+  db.get(query, [hostId], (err, host: any) => {
     if (err || !host) {
       console.error(`[SSH] Host not found for id ${hostId}`);
       return socket.emit('ssh_error', 'Host not found');
     }
 
-    console.log(`[SSH] Starting session for host: ${host.name} (ID: ${hostId}), DB sectorId: ${host.sectorId}`);
+    console.log(`[SSH] Starting session for host: ${host.name} (ID: ${hostId}), Sector: ${host.sectorName} (${host.sectorId})`);
 
     const conn = new Client();
     conn.on('ready', () => {
@@ -46,15 +56,17 @@ export const startSSHConnection = (hostId: number, socket: any, io: any, usernam
           stream, 
           hostName: host.name, 
           startedBy: username,
-          sectorId: host.sectorId // Corrected to camelCase sectorId
+          sectorId: host.sectorId,
+          sectorName: host.sectorName
         };
 
-        console.log(`[SSH] Session created: ${sessionId}, sectorId assigned: ${activeSessions[sessionId].sectorId}`);
+        console.log(`[SSH] Session created: ${sessionId}, sector: ${host.sectorName}`);
 
         socket.emit('session_started', { sessionId, hostName: host.name });
         
         // Trigger real-time broadcast
         if (broadcastCallback) broadcastCallback();
+
 
         
         stream.on('data', (data: any) => {

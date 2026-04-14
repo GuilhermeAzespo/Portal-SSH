@@ -46,7 +46,7 @@ const broadcastSessions = async () => {
           const userId = s.data.user?.id;
           const userRole = s.data.user?.role;
           const userRoleName = s.data.user?.roleName;
-          const isSuperAdmin = userRole === 'admin' || userRoleName === 'Administrador';
+          const isSuperAdmin = userRoleName === 'Administrador';
 
 
           const sectorIds = s.data.user?.sectorIds || [];
@@ -82,7 +82,7 @@ io.on('connection', (socket) => {
     const userRole = socket.data.user?.role;
     const userRoleName = socket.data.user?.roleName;
     const userId = socket.data.user?.id;
-    const isSuperAdmin = userRole === 'admin' || userRoleName === 'Administrador';
+    const isSuperAdmin = userRoleName === 'Administrador';
 
 
         console.log(`Client connected: ${socket.id} user: ${username}`);

@@ -251,11 +251,19 @@ export const Dashboard = () => {
             {activeSessions.map(session => (
               <div key={session.id} className="session-row">
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{session.hostName}</div>
+                  <div style={{ fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    {session.hostName}
+                    {session.sectorName && (
+                      <span className="badge badge-primary" style={{ fontSize: '0.6rem', padding: '0.1rem 0.4rem' }}>
+                        {session.sectorName}
+                      </span>
+                    )}
+                  </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--success)', marginTop: '0.15rem', fontFamily: 'var(--font-mono)' }}>
                     ● iniciado por {session.startedBy}
                   </div>
                 </div>
+
                 <button
                   className="button button-outline"
                   style={{ padding: '0.4rem 0.875rem', fontSize: '0.8rem', borderColor: 'var(--success)', color: 'var(--success)' }}

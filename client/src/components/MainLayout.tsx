@@ -48,7 +48,7 @@ export const MainLayout = () => {
           <div className="sidebar-logo">{'>_'}</div>
           <div className="sidebar-brand">
             <h2 className="sidebar-title">Portal <span>SSH</span></h2>
-            <span className="sidebar-subtitle">2.3.7 · secure shell</span>
+            <span className="sidebar-subtitle">2.3.8 · secure shell</span>
           </div>
         </div>
 

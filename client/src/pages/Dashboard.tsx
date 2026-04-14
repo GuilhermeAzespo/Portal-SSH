@@ -253,11 +253,16 @@ export const Dashboard = () => {
                 <div>
                   <div style={{ fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     {session.hostName}
-                    {session.sectorName && (
+                    {session.sectorName ? (
                       <span className="badge badge-primary" style={{ fontSize: '0.6rem', padding: '0.1rem 0.4rem' }}>
                         {session.sectorName}
                       </span>
+                    ) : (
+                      <span className="badge badge-secondary" style={{ fontSize: '0.6rem', padding: '0.1rem 0.4rem', opacity: 0.7 }}>
+                        ID: {session.sectorId || 'N/A'}
+                      </span>
                     )}
+
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--success)', marginTop: '0.15rem', fontFamily: 'var(--font-mono)' }}>
                     ● iniciado por {session.startedBy}

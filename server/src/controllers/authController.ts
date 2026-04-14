@@ -46,8 +46,10 @@ export const login = (req: Request, res: Response) => {
             username: user.username, 
             role: user.role,
             roleName: user.roleName || user.role,
-            sectorIds // Include sectorIds in JWT
+            sectorIds, // Include sectorIds in JWT
+            v: "v2.4.0" // Force version tracking
           },
+
           JWT_SECRET,
           { expiresIn: '24h' }
         );

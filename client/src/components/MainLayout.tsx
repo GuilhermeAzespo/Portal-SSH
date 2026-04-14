@@ -102,7 +102,17 @@ export const MainLayout = () => {
           <div className="sidebar-user">
             <div className="sidebar-avatar">{avatarInitials}</div>
             <div className="sidebar-user-info">
-              <div className="sidebar-username">{user?.username}</div>
+              <div className="sidebar-username" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {user?.username}
+                <div 
+                  className="permission-debug" 
+                  onClick={() => alert(`DEBUG PERMISSÕES:\n\nEmail: ${user?.username}\nID: ${(user as any)?.id}\nRole: ${user?.role}\nRoleName: ${user?.roleName}\nSectores: ${JSON.stringify((user as any)?.sectorIds || [])}`)}
+                  style={{ cursor: 'pointer', opacity: 0.5, fontSize: '0.8rem' }}
+                  title="Ver Permissões Reais"
+                >
+                  🛡️
+                </div>
+              </div>
               <div className="sidebar-role">{user?.roleName || user?.role}</div>
             </div>
           </div>

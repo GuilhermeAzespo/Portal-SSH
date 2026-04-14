@@ -103,4 +103,17 @@ io.on('connection', (socket) => {
 
 
         socket.on('start_session', (payload) => {
-              if (userRole === 'Visualizador') return socket.emit('ssh_error', 'Sem permiss
+              if (userRole === 'Visualizador') return socket.emit('ssh_error', 'Sem permissão para iniciar sessões');
+              const { hostId } = payload;
+              startSSHConnection(hostId, socket, io, username || 'Anonymous');
+        });
+
+        socket.on('disconnect', () => {
+              console.log(`Client disconnected: ${socket.id}`);
+        });
+});
+
+const PORT = process.env.PORT || 4000;
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});

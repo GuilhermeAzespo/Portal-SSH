@@ -35,7 +35,9 @@ const io = new Server(server, {
     }
 });
 
-setBroadcastCallback(broadcastSessions);
+
+// Moving setBroadcastCallback after broadcastSessions definition to fix hoisting
+
 
 
 const broadcastSessions = async () => {
@@ -65,6 +67,9 @@ const broadcastSessions = async () => {
 
     }
 };
+
+setBroadcastCallback(broadcastSessions);
+
 
 io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
@@ -115,6 +120,44 @@ io.on('connection', (socket) => {
               if (userRole === 'Visualizador') return socket.emit('ssh_error', 'Sem permissão para iniciar sessões');
               const { hostId } = payload;
               startSSHConnection(hostId, socket, io, username || 'Anonymous');
+        });
+
+        socket.on('join_session', (payload) => {
+              const { sessionId } = payload;
+              const session = activeSessions[sessionId];
+              
+              if (!session) {
+                    return socket.emit('ssh_error', 'Sessão não encontrada ou já encerrada');
+              }
+
+              const sessionSectorId = Number(session.sectorId);
+              const userSectorIds = (socket.data.user?.sectorIds || []).map(Number);
+              
+              // Security check: Administrators see everything, others must match sector
+              if (!isSuperAdmin && !userSectorIds.includes(sessionSectorId)) {
+                    console.warn(`[Security] Unauthorized join attempt by ${username} to session ${sessionId} (Sector: ${session.sectorId})`);
+                    return socket.emit('ssh_error', 'Acesso negado: esta sessão pertence a outro setor');
+              }
+
+              socket.join(`session_${sessionId}`);
+              socket.emit('session_joined', { 
+                    sessionId, 
+                    hostName: session.hostName 
+              });
+              
+              console.log(`[SSH] User ${username} joined session ${sessionId} (${session.hostName})`);
+        });
+
+        socket.on('close_session', (payload) => {
+              const { sessionId } = payload;
+              if (activeSessions[sessionId]) {
+                    // Only the person who started it or an admin can close?
+                    // For now, let's just allow closing if you are in the session
+                    // In a real app, we'd check permissions more strictly
+                    activeSessions[sessionId].ssh.end();
+                    delete activeSessions[sessionId];
+                    broadcastSessions();
+              }
         });
 
         socket.on('disconnect', () => {

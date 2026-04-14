@@ -160,6 +160,20 @@ io.on('connection', (socket) => {
               }
         });
 
+        socket.on('ssh_input', (payload) => {
+              const { sessionId, data } = payload;
+              if (activeSessions[sessionId]?.stream) {
+                    activeSessions[sessionId].stream.write(data);
+              }
+        });
+
+        socket.on('resize', (payload) => {
+              const { sessionId, cols, rows } = payload;
+              if (activeSessions[sessionId]?.stream) {
+                    activeSessions[sessionId].stream.setWindow(rows, cols, 0, 0);
+              }
+        });
+
         socket.on('disconnect', () => {
               console.log(`Client disconnected: ${socket.id}`);
         });

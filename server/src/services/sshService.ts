@@ -62,6 +62,8 @@ export const startSSHConnection = (hostId: number, socket: any, io: any, usernam
 
         console.log(`[SSH] Session created: ${sessionId}, sector: ${host.sectorName}`);
 
+        // The initiating socket must join the room to receive ssh_data events
+        socket.join(`session_${sessionId}`);
         socket.emit('session_started', { sessionId, hostName: host.name });
         
         // Trigger real-time broadcast

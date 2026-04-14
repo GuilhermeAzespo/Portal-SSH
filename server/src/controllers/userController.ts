@@ -87,15 +87,21 @@ export const updateUser = async (req: Request, res: Response) => {
       if (this.changes === 0) return res.status(404).json({ error: 'User not found' });
 
       // Sync sectors: Delete old and insert new
-      db.run(`DELETE FROM user_sectors WHERE userId = ?`, [id], () => {
-        if (sectorIds && Array.isArray(sectorIds)) {
-          const sectorStmt = db.prepare(`INSERT INTO user_sectors (userId, sectorId) VALUES (?, ?)`);
-          sectorIds.forEach(sid => sectorStmt.run(id, sid));
-          sectorStmt.finalize();
+      // NOTE: res.json is called INSIDE the callback to ensure sectors are committed before responding
+      db.run(`DELETE FROM user_sectors WHERE userId = ?`, [Number(id)], (delErr) => {
+        if (delErr) {
+          console.error('[userController] Failed to delete old sectors:', delErr);
+        }
+        if (sectorIds && Array.isArray(sectorIds) && sectorIds.length > 0) {
+          const sectorStmt = db.prepare(`INSERT OR IGNORE INTO user_sectors (userId, sectorId) VALUES (?, ?)`);
+          sectorIds.forEach(sid => sectorStmt.run(Number(id), Number(sid)));
+          sectorStmt.finalize(() => {
+            res.json({ message: 'User updated successfully' });
+          });
+        } else {
+          res.json({ message: 'User updated successfully' });
         }
       });
-
-      res.json({ message: 'User updated successfully' });
     });
   } catch (error) {
     res.status(500).json({ error: 'Error processing update' });

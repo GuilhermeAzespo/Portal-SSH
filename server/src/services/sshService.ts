@@ -29,15 +29,18 @@ export const getActiveSessionsList = () => {
 export const startSSHConnection = (hostId: number, socket: any, io: any, username: string) => {
   db.get("SELECT * FROM hosts WHERE id = ?", [hostId], (err, host: any) => {
     if (err || !host) {
+      console.error(`[SSH] Host not found for id ${hostId}`);
       return socket.emit('ssh_error', 'Host not found');
     }
+
+    console.log(`[SSH] Starting session for host: ${host.name} (ID: ${hostId}), DB sectorId: ${host.sectorId}`);
 
     const conn = new Client();
     conn.on('ready', () => {
       conn.shell((err, stream) => {
         if (err) return socket.emit('ssh_error', err.message);
 
-        const sessionId = `${hostId}_${Date.now()}`;
+        const sessionId = Math.random().toString(36).substring(7);
         activeSessions[sessionId] = { 
           ssh: conn, 
           stream, 
@@ -46,6 +49,7 @@ export const startSSHConnection = (hostId: number, socket: any, io: any, usernam
           sectorId: host.sectorId // Corrected to camelCase sectorId
         };
 
+        console.log(`[SSH] Session created: ${sessionId}, sectorId assigned: ${activeSessions[sessionId].sectorId}`);
 
         socket.emit('session_started', { sessionId, hostName: host.name });
         

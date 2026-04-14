@@ -27,14 +27,16 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/update', updateRoutes);
 app.use('/api/sectors', sectorRoutes);
 
-import { startSSHConnection, activeSessions, getActiveSessionsList } from './services/sshService';
-
+import { startSSHConnection, activeSessions, getActiveSessionsList, setBroadcastCallback } from './services/sshService';
 const io = new Server(server, {
     cors: {
           origin: '*',
           methods: ['GET', 'POST']
     }
 });
+
+setBroadcastCallback(broadcastSessions);
+
 
 const broadcastSessions = async () => {
     const sockets = await io.fetchSockets();
@@ -43,7 +45,9 @@ const broadcastSessions = async () => {
     for (const s of sockets) {
           const userId = s.data.user?.id;
           const userRole = s.data.user?.role;
-          const isSuperAdmin = userRole === 'admin';
+          const userRoleName = s.data.user?.roleName;
+          const isSuperAdmin = userRole === 'admin' || userRoleName === 'Administrador';
+
 
       if (isSuperAdmin) {
               s.emit('active_sessions_update', allSessions);
@@ -73,8 +77,10 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
     const username = socket.data.user?.username;
     const userRole = socket.data.user?.role;
+    const userRoleName = socket.data.user?.roleName;
     const userId = socket.data.user?.id;
-    const isSuperAdmin = userRole === 'admin';
+    const isSuperAdmin = userRole === 'admin' || userRoleName === 'Administrador';
+
 
         console.log(`Client connected: ${socket.id} user: ${username}`);
 

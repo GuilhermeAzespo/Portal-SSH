@@ -11,6 +11,12 @@ export interface ActiveSession {
 
 export const activeSessions: { [key: string]: ActiveSession } = {};
 
+let broadcastCallback: (() => void) | null = null;
+export const setBroadcastCallback = (cb: () => void) => {
+  broadcastCallback = cb;
+};
+
+
 export const getActiveSessionsList = () => {
   return Object.keys(activeSessions).map(id => ({ 
     id, 
@@ -37,13 +43,15 @@ export const startSSHConnection = (hostId: number, socket: any, io: any, usernam
           stream, 
           hostName: host.name, 
           startedBy: username,
-          sectorId: host.sector_id // Correctly store sector_id
+          sectorId: host.sectorId // Corrected to camelCase sectorId
         };
+
 
         socket.emit('session_started', { sessionId, hostName: host.name });
         
-        // We will now handle filtered broadcast in index.ts
-        // Original: io.emit('active_sessions_update', getActiveSessionsList());
+        // Trigger real-time broadcast
+        if (broadcastCallback) broadcastCallback();
+
         
         stream.on('data', (data: any) => {
           io.to(`session_${sessionId}`).emit('ssh_data', { sessionId, data: data.toString() });
@@ -52,13 +60,16 @@ export const startSSHConnection = (hostId: number, socket: any, io: any, usernam
         stream.on('close', () => {
           conn.end();
           delete activeSessions[sessionId];
-          // Filtered broadcast handled in index.ts
+          // Trigger real-time broadcast
+          if (broadcastCallback) broadcastCallback();
         });
+
       });
     }).on('error', (err) => {
       socket.emit('ssh_error', err.message);
     }).connect({
-      host: host.ip,
+      host: host.host, // Corrected from host.ip to host.host
+
       port: host.port || 22,
       username: host.username,
       password: host.password

@@ -45,13 +45,15 @@ const broadcastSessions = async () => {
     const allSessions = getActiveSessionsList();
 
     for (const s of sockets) {
-          const userId = s.data.user?.id;
-          const userRole = s.data.user?.role;
-          const userRoleName = s.data.user?.roleName;
+          const user = s.data.user;
+          if (!user) continue; // Skip unauthenticated sockets
+
+          const userId = user.id;
+          const userRole = user.role;
+          const userRoleName = user.roleName;
           const isSuperAdmin = userRoleName === 'Administrador';
 
-
-          const sectorIds = (s.data.user?.sectorIds || []).map(Number);
+          const sectorIds = (user.sectorIds || []).map(Number);
           
           if (isSuperAdmin) {
                   s.emit('active_sessions_update', allSessions);
@@ -63,8 +65,6 @@ const broadcastSessions = async () => {
                   });
                   s.emit('active_sessions_update', filtered);
           }
-
-
     }
 };
 
@@ -177,6 +177,12 @@ io.on('connection', (socket) => {
         socket.on('disconnect', () => {
               console.log(`Client disconnected: ${socket.id}`);
         });
+});
+
+// Global error handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('[Fatal] Unhandled error:', err);
+    res.status(500).json({ error: 'Erro interno no servidor' });
 });
 
 const PORT = process.env.PORT || 4000;

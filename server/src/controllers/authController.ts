@@ -5,13 +5,14 @@ import { db } from '../db/database';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'portal-ssh-secret-dev';
 
-export const login = (req: Request, res: Response) => {
+export const login = async (req: Request, res: Response) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password required' });
   }
 
+  try {
     const query = `
       SELECT u.*, r.name as roleName, r.permissions 
       FROM users u 
@@ -21,23 +22,32 @@ export const login = (req: Request, res: Response) => {
 
     db.get(query, [username, username], async (err, user: any) => {
       if (err) {
-        console.error(err);
-        return res.status(500).json({ error: 'Database error' });
+        console.error('[AuthContoller] Database error during login:', err);
+        return res.status(500).json({ error: 'Erro no banco de dados' });
       }
 
       if (!user) {
-        return res.status(401).json({ error: 'User not found' });
+        return res.status(401).json({ error: 'Usuário não encontrado' });
       }
 
       const match = await bcrypt.compare(password, user.password);
       if (!match) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+        return res.status(401).json({ error: 'Credenciais inválidas' });
       }
 
-      const permissions = user.permissions ? JSON.parse(user.permissions) : [];
+      let permissions = [];
+      try {
+        permissions = user.permissions ? JSON.parse(user.permissions) : [];
+      } catch (e) {
+        console.warn('[AuthContoller] Failed to parse permissions for user:', user.username);
+        permissions = [];
+      }
 
       // Get user sectors
       db.all("SELECT sectorId FROM user_sectors WHERE userId = ?", [user.id], (err, rows: any) => {
+        if (err) {
+          console.error('[AuthContoller] Error fetching user sectors:', err);
+        }
         const sectorIds = rows ? rows.map((r: any) => r.sectorId) : [];
 
         const token = jwt.sign(
@@ -46,10 +56,9 @@ export const login = (req: Request, res: Response) => {
             username: user.username, 
             role: user.role,
             roleName: user.roleName || user.role,
-            sectorIds, // Include sectorIds in JWT
-            v: "v2.4.0" // Force version tracking
+            sectorIds,
+            v: "v2.4.4-hotfix" // Bumped version in JWT
           },
-
           JWT_SECRET,
           { expiresIn: '24h' }
         );
@@ -67,8 +76,11 @@ export const login = (req: Request, res: Response) => {
           } 
         });
       });
-
     });
+  } catch (error) {
+    console.error('[AuthContoller] Critical error during login:', error);
+    res.status(500).json({ error: 'Erro interno no servidor de autenticação' });
+  }
 };
 
 export const getMe = (req: any, res: Response) => {

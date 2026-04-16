@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import axios from 'axios';
 import { Upload, FileSearch, Loader2, Network, Cpu, CheckCircle2, AlertCircle, FileText, Database } from 'lucide-react';
 
 export default function PcapAnalyzer() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [statusText, setStatusText] = useState('');
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -47,6 +49,8 @@ export default function PcapAnalyzer() {
     setLoading(true);
     setResult(null);
     setError(null);
+    setUploadProgress(0);
+    setStatusText('Enviando arquivo para o núcleo...');
 
     const formData = new FormData();
     formData.append('pcap', file);
@@ -57,14 +61,33 @@ export default function PcapAnalyzer() {
         headers: { 
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`
+        },
+        timeout: 120000, // 2-min timeout para toda a rotação
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(percentCompleted);
+            if (percentCompleted === 100) {
+              setStatusText('Digerindo protocolos (isso pode levar uns segundos)...');
+            } else {
+              setStatusText(`Enviando tráfego... ${percentCompleted}%`);
+            }
+          }
         }
       });
       setResult(response.data);
     } catch (err: any) {
-      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Erro ao processar o arquivo. Verifique sua chave de IA nas configurações.';
-      setError(errorMsg);
+      if (err.message === 'Network Error' || err.code === 'ERR_NETWORK') {
+         setError('Erro de Rede. Se o arquivo for muito grande, Nginx pode ter bloqueado (client_max_body_size). Tente um arquivo menor.');
+      } else if (err.code === 'ECONNABORTED') {
+         setError('Tempo limite esgotado. A análise da IA demorou mais que o esperado (Rate Limit do OpenRouter).');
+      } else {
+         const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Falha profunda ao processar. Verifique os logs do servidor ou sua chave de IA.';
+         setError(errorMsg);
+      }
     } finally {
       setLoading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -83,7 +106,7 @@ export default function PcapAnalyzer() {
       <div className="grid" style={{ display: 'grid', gridTemplateColumns: result ? '1fr 1fr' : '1fr', gap: '2rem' }}>
         
         {/* Upload Section */}
-        <div className={`card glass ${loading ? 'pulse' : ''}`}>
+        <div className={`card glass ${loading && uploadProgress === 100 ? 'pulse' : ''}`}>
           <div className="card-header" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ background: 'var(--primary-glow)', padding: '6px', borderRadius: '6px' }}>
               <Upload size={18} color="var(--primary)" />
@@ -111,7 +134,7 @@ export default function PcapAnalyzer() {
               onDrop={handleDrop}
               onClick={() => document.getElementById('pcap-upload')?.click()}
             >
-              <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ position: 'relative', zIndex: 1, pointerEvents: loading ? 'none' : 'auto' }}>
                 <div style={{ 
                   width: '64px', 
                   height: '64px', 
@@ -133,12 +156,13 @@ export default function PcapAnalyzer() {
                   accept=".pcap,.pcapng" 
                   hidden 
                   onChange={handleFileChange} 
+                  disabled={loading}
                 />
                 <p style={{ fontWeight: 600, fontSize: '0.95rem', color: file ? 'var(--text-main)' : 'var(--text-muted)' }}>
                   {file ? file.name : 'Clique ou arraste seu arquivo .pcap aqui'}
                 </p>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', marginTop: '8px' }}>
-                  Máximo: 50MB (Standard PCAP/PCAPNG)
+                  Máximo recomendado via web: 10MB (Standard PCAP)
                 </p>
               </div>
               
@@ -147,6 +171,18 @@ export default function PcapAnalyzer() {
               )}
             </div>
 
+            {loading && uploadProgress < 100 && (
+              <div style={{ marginTop: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-subtle)', marginBottom: '6px' }}>
+                  <span>Upload progresso...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'var(--bg-surface-3)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', background: 'var(--primary)', width: `${uploadProgress}%`, transition: 'width 0.2s ease-out' }}></div>
+                </div>
+              </div>
+            )}
+
             <button 
               className="button" 
               style={{ width: '100%', marginTop: '2rem', height: '48px' }}
@@ -154,13 +190,13 @@ export default function PcapAnalyzer() {
               disabled={!file || loading}
             >
               {loading ? <Loader2 className="spin" size={20} /> : <FileSearch size={20} />}
-              {loading ? 'Processando Heurísticas...' : 'Descodificar e Analisar'}
+              {loading ? statusText : 'Descodificar e Analisar'}
             </button>
 
             {error && (
-              <div className="fade-in" style={{ marginTop: '1.25rem', padding: '1rem', background: 'var(--danger-bg)', border: '1px solid rgba(248,113,113,0.1)', borderRadius: 'var(--radius-md)', color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
-                <AlertCircle size={18} />
-                {error}
+              <div className="fade-in" style={{ marginTop: '1.25rem', padding: '1rem', background: 'var(--danger-bg)', border: '1px solid rgba(248,113,113,0.1)', borderRadius: 'var(--radius-md)', color: 'var(--danger)', display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.85rem' }}>
+                <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ lineHeight: '1.5' }}>{error}</div>
               </div>
             )}
           </div>
@@ -176,7 +212,7 @@ export default function PcapAnalyzer() {
                 </div>
                 <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Diagnóstico da IA</h3>
               </div>
-              <span className="badge badge-primary">Gemini Advanced</span>
+              <span className="badge badge-primary">OpenRouter Analyser</span>
             </div>
             
             <div className="card-body">

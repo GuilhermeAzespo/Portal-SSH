@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 // Configuration
 const TOKEN = process.env.GITHUB_TOKEN;
 const REPO = 'GuilhermeAzespo/Portal-SSH';
-const VERSION = '3.0.4';
+const VERSION = '3.0.5';
 
 async function createRelease() {
   console.log(`--- Iniciando processo de release v${VERSION} ---`);

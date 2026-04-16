@@ -30,6 +30,8 @@ export const analyzePcap = async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Nenhum arquivo enviado' });
   }
 
+  console.log(`[PCAP CONTROLLER] Starting analysis of file: ${req.file.originalname} (${req.file.size} bytes)`);
+
   const filePath = req.file.path;
   const parser = pcap.parse(filePath);
   
@@ -45,14 +47,10 @@ export const analyzePcap = async (req: Request, res: Response) => {
 
   parser.on('packet', (packet: any) => {
     summary.totalPackets++;
-    
-    // Minimal parsing of the packet data buffer
-    // pcap-parser gives raw buffers. We need to look at ethernet/IP headers.
-    // Ethernet (14 bytes) -> IP (20 bytes) -> TCP/UDP
+    // ... rest of packet parsing logic remains same ...
     const data = packet.data;
-    if (data.length < 34) return; // Not enough data for IP header
+    if (data.length < 34) return; 
 
-    // Check if it's IPv4 (Ethernet type 0x0800 at byte 12-13)
     const ethType = data.readUInt16BE(12);
     if (ethType !== 0x0800) return;
 
@@ -63,7 +61,6 @@ export const analyzePcap = async (req: Request, res: Response) => {
     const protoName = ipProto === 6 ? 'TCP' : ipProto === 17 ? 'UDP' : `Proto-${ipProto}`;
     summary.protocols[protoName] = (summary.protocols[protoName] || 0) + 1;
 
-    // Extract ports if TCP/UDP
     if (ipProto === 6 || ipProto === 17) {
       const srcPort = data.readUInt16BE(34);
       const dstPort = data.readUInt16BE(36);
@@ -74,14 +71,10 @@ export const analyzePcap = async (req: Request, res: Response) => {
       }
       summary.flows[flowKey].packets++;
 
-      // Deep inspection for SIP/HTTP (very basic string matching for demo/speed)
-      // Application data starts after IP header (usually byte 34 for TCP/UDP header start)
-      // + TCP (at least 20 bytes) or UDP (8 bytes)
       const appDataOffset = ipProto === 6 ? 34 + (data[46] >> 4) * 4 : 34 + 8;
       if (data.length > appDataOffset) {
         const payload = data.toString('utf8', appDataOffset).substring(0, 500);
         
-        // SIP Detection
         if (payload.includes('SIP/2.0')) {
           const methodMatch = payload.match(/^(INVITE|REGISTER|BYE|ACK|OPTIONS|CANCEL|SUBSCRIBE|NOTIFY|PUBLISH|INFO|REFER|MESSAGE|UPDATE|PRACK)/);
           if (methodMatch) {
@@ -92,7 +85,6 @@ export const analyzePcap = async (req: Request, res: Response) => {
           }
         }
         
-        // HTTP Detection
         if (payload.match(/^(GET|POST|PUT|DELETE|HEAD|OPTIONS|PATCH) /)) {
           const method = payload.split(' ')[0];
           summary.httpMethods[method] = (summary.httpMethods[method] || 0) + 1;
@@ -102,11 +94,11 @@ export const analyzePcap = async (req: Request, res: Response) => {
   });
 
   parser.on('end', async () => {
+    console.log(`[PCAP CONTROLLER] Parsing completed. Total packets: ${summary.totalPackets}`);
     try {
-      // Clean up flow data to avoid huge payloads to AI
       const topFlows = Object.entries(summary.flows)
         .sort((a: any, b: any) => b[1].packets - a[1].packets)
-        .slice(0, 20); // Top 20 flows only
+        .slice(0, 20);
       
       const aiSummary = {
         meta: { fileName: summary.fileName, totalPackets: summary.totalPackets },
@@ -117,23 +109,25 @@ export const analyzePcap = async (req: Request, res: Response) => {
         errors: summary.errorsDetected.slice(0, 10)
       };
 
+      console.log(`[PCAP CONTROLLER] Sending summary to AI Service...`);
       const aiAnalysis = await analyzeWithAI(aiSummary);
       
-      // Cleanup file after analysis
-      fs.unlinkSync(filePath);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
       res.json({
         summary: aiSummary,
         analysis: aiAnalysis
       });
     } catch (error: any) {
+      console.error(`[PCAP CONTROLLER] AI Analysis failed:`, error.message);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       res.status(500).json({ error: error.message || 'Erro na análise de IA' });
     }
   });
 
   parser.on('error', (err: any) => {
+    console.error(`[PCAP CONTROLLER] Parser error:`, err);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    res.status(500).json({ error: 'Erro ao processar arquivo PCAP' });
+    res.status(500).json({ error: 'Erro ao processar arquivo PCAP (possível arquivo corrompido ou formato inválido)' });
   });
 };

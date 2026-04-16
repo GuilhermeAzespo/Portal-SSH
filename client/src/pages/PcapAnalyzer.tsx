@@ -194,9 +194,34 @@ export default function PcapAnalyzer() {
             </button>
 
             {error && (
-              <div className="fade-in" style={{ marginTop: '1.25rem', padding: '1rem', background: 'var(--danger-bg)', border: '1px solid rgba(248,113,113,0.1)', borderRadius: 'var(--radius-md)', color: 'var(--danger)', display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.85rem' }}>
-                <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-                <div style={{ lineHeight: '1.5' }}>{error}</div>
+              <div className="fade-in" style={{ 
+                marginTop: '1.25rem', 
+                padding: '1.25rem', 
+                background: 'rgba(248, 113, 113, 0.05)', 
+                border: '1px solid rgba(248, 113, 113, 0.2)', 
+                borderRadius: 'var(--radius-lg)', 
+                color: 'var(--danger)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <AlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <h4 style={{ margin: '0 0 4px 0', fontSize: '0.9rem', fontWeight: 600 }}>Erro no Processamento</h4>
+                    <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: '1.5', opacity: 0.9 }}>{error}</p>
+                    
+                    {/* Troubleshooting Tips */}
+                    {(error.includes('Chave') || error.includes('OpenRouter')) && (
+                      <div style={{ marginTop: '12px', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-md)', fontSize: '0.78rem', borderLeft: '2px solid var(--danger)' }}>
+                        <strong>Dica:</strong> Verifique se sua chave API está correta em <em>Configurações {'>'} Inteligência Artificial</em> e se você possui saldo disponível no OpenRouter.
+                      </div>
+                    )}
+                    
+                    {(error.includes('Timeout') || error.includes('Tempo limite')) && (
+                      <div style={{ marginTop: '12px', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-md)', fontSize: '0.78rem', borderLeft: '2px solid var(--warning)' }}>
+                        <strong>Dica:</strong> Arquivos muito grandes podem demorar para serem processados pela IA. Tente segmentar o PCAP em fatias menores ou aguarde alguns minutos antes de tentar novamente.
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

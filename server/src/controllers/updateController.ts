@@ -2,6 +2,19 @@ import { Request, Response } from 'express';
 import { exec } from 'child_process';
 import fs from 'fs';
 
+// Auto-recover from suicide restart
+try {
+  const initLogPath = '/app/db_data/update.log';
+  if (fs.existsSync(initLogPath)) {
+    const log = fs.readFileSync(initLogPath, 'utf8');
+    if (log.includes('suicide restart initiated') && !log.includes('update done at')) {
+       fs.appendFileSync(initLogPath, `\n[${new Date().toISOString()}] --- update done at ${new Date().toISOString()} (recovered from restart) ---\n`);
+    }
+  }
+} catch (e) {
+  console.error("Log recovery failed:", e);
+}
+
 export const triggerUpdate = (req: Request, res: Response) => {
   const projectRoot = '/app/host_source';
   const logPath = '/app/db_data/update.log';

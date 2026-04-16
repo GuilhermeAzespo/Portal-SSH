@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 // Configuration
 const TOKEN = process.env.GITHUB_TOKEN;
 const REPO = 'GuilhermeAzespo/Portal-SSH';
-const VERSION = '3.0.3';
+const VERSION = '3.0.4';
 
 async function createRelease() {
   console.log(`--- Iniciando processo de release v${VERSION} ---`);
@@ -24,7 +24,7 @@ async function createRelease() {
   try {
     console.log('Commitando e criando tag...');
     execSync('git add .');
-    execSync(`git commit -m "chore: release v${VERSION} - Analisador PCAP e IA"`);
+    execSync(`git commit -m "chore: release v${VERSION} - Fix OTA auto-update loop"`);
     execSync(`git tag -a v${VERSION} -m "Release v${VERSION}"`);
     
     console.log('Configurando autenticação remota...');
@@ -43,8 +43,8 @@ async function createRelease() {
   console.log('Criando Release oficial no GitHub...');
   const releaseData = {
     tag_name: `v${VERSION}`,
-    name: `v${VERSION} - Premium UI Hotfix & UX Refinement`,
-    body: `## Portal SSH v3.0.1 - Refinamento Estético e UX\n\nEste hotfix traz uma série de melhorias visuais para as novas funcionalidades de IA.\n\n### Melhorias:\n- **Premium UI**: Padronização de cores, glassmorphism e botões com efeitos de brilho.\n- **Scanner PCAP**: Redesign da zona de upload com feedback visual aprimorado.\n- **Relatórios de IA**: Nova visualização de diagnóstico com tipografia monoespaçada e layout de terminal.\n- **Estabilidade**: Correção de imports não utilizados e dependências faltantes no build.\n\n---\n*Release gerado automaticamente via Antigravity AI.*`,
+    name: `v${VERSION} - OTA Auto-Recovery Hotfix`,
+    body: `## Portal SSH v3.0.4 - OTA Recuperação Automática\n\nEste hotfix corrige o "loop" infinito na tela de atualizações do sistema.\n\n### Melhorias:\n- **Auto-Recovery**: O sistema agora detecta quando os containers foram reiniciados via OTA e marca a atualização como concluída imediatamente assim que o backend retorna online.\n- **Experiência de Atualização**: Resolve a falha visual onde a tela ficava preza em "Aguardando rebuild dos containers..." indefinidamente após o êxito real do processo de reconstrução do Docker.\n\n---\n*Release gerado automaticamente via Antigravity AI.*`,
     draft: false,
     prerelease: false
   };

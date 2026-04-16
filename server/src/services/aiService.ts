@@ -3,18 +3,21 @@ import { db } from '../db/database';
 
 export const analyzeWithAI = async (summary: any): Promise<string> => {
   return new Promise((resolve, reject) => {
+    // Buscar configurações de forma sequencial para maior clareza
     db.get("SELECT value FROM settings WHERE key = 'openrouter_key'", (err, keyRow: any) => {
-      if (err) return reject('Erro ao acessar banco de dados');
+      if (err) return reject('Erro ao acessar banco de dados (chave)');
       
       db.get("SELECT value FROM settings WHERE key = 'ai_model'", async (err, modelRow: any) => {
-        if (err) return reject('Erro ao acessar banco de dados');
+        if (err) return reject('Erro ao acessar banco de dados (modelo)');
         
         const apiKey = keyRow?.value;
         const model = modelRow?.value || 'google/gemini-2.0-flash-001';
 
-        if (!apiKey) {
-          return reject('OpenRouter API Key não configurada. Vá em Configurações de IA.');
+        if (!apiKey || apiKey.trim() === '') {
+          return reject('OpenRouter API Key não configurada. Por favor, vá em Configurações de IA e salve sua chave.');
         }
+
+        console.log(`[AI SERVICE] Iniciando análise com modelo: ${model}`);
 
         try {
           const response = await axios.post(
@@ -24,28 +27,46 @@ export const analyzeWithAI = async (summary: any): Promise<string> => {
               messages: [
                 {
                   role: 'system',
-                  content: 'Você é um especialista altamente qualificado em Redes, Segurança Cibernética e Telecomunicações. Sua tarefa é analisar um resumo de tráfego de rede extraído de um arquivo PCAP. Procure especificamente por: \n1. Problemas em SIP (erros 4xx, 5xx, timeouts de INVITE).\n2. Estatísticas de RTP (fluxos interrompidos, jitter excessivo).\n3. Anomalias HTTP (erros de servidor, excesso de requisições).\n4. Possíveis varreduras de porta ou comportamentos suspeitos.\nRetorne uma análise técnica, direta e com recomendações de correção.'
+                  content: 'Você é um especialista em Redes e Telecomunicações. Analise o resumo do PCAP e retorne um diagnóstico técnico claro sobre a saúde da rede, focando em erros de protocolo (SIP/HTTP) e qualidade de tráfego (RTP/UDP).'
                 },
                 {
                   role: 'user',
-                  content: `Aqui está o resumo dos fluxos detectados no PCAP:\n\n${JSON.stringify(summary, null, 2)}`
+                  content: `Resumo do tráfego PCAP:\n${JSON.stringify(summary, null, 2)}`
                 }
               ]
             },
             {
               headers: {
-                'Authorization': `Bearer ${apiKey}`,
+                'Authorization': `Bearer ${apiKey.trim()}`,
                 'HTTP-Referer': 'https://github.com/GuilhermeAzespo/Portal-SSH',
-                'X-Title': 'Portal SSH v3.0.0',
+                'X-Title': 'Portal SSH v3.0.x',
                 'Content-Type': 'application/json'
-              }
+              },
+              timeout: 30000 // 30 segundos de timeout
             }
           );
 
-          resolve(response.data.choices[0].message.content);
+          if (response.data && response.data.choices && response.data.choices[0]) {
+            resolve(response.data.choices[0].message.content);
+          } else {
+            console.error('[AI SERVICE] Resposta inesperada do OpenRouter:', response.data);
+            reject('Resposta inválida do OpenRouter. Verifique se o modelo está disponível.');
+          }
         } catch (error: any) {
-          console.error('AI Analysis Error:', error.response?.data || error.message);
-          reject(error.response?.data?.error?.message || error.message || 'Erro desconhecido na API do OpenRouter');
+          const errorDetail = error.response?.data?.error?.message || error.response?.data?.message || error.message;
+          console.error('[AI SERVICE] Erro na API do OpenRouter:', {
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message
+          });
+          
+          let userMessage = 'Erro na análise de IA: ';
+          if (error.response?.status === 401) userMessage += 'Chave de API inválida ou expirada.';
+          else if (error.response?.status === 402) userMessage += 'Créditos insuficientes no OpenRouter.';
+          else if (error.response?.status === 429) userMessage += 'Limite de requisições atingido (Rate Limit).';
+          else userMessage += errorDetail;
+
+          reject(userMessage);
         }
       });
     });

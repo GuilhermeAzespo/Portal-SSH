@@ -61,7 +61,8 @@ export default function PcapAnalyzer() {
       });
       setResult(response.data);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Erro ao processar o arquivo. Verifique sua chave de IA nas configurações.');
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Erro ao processar o arquivo. Verifique sua chave de IA nas configurações.';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }

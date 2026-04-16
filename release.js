@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 // Configuration
 const TOKEN = process.env.GITHUB_TOKEN;
 const REPO = 'GuilhermeAzespo/Portal-SSH';
-const VERSION = '3.0.0';
+const VERSION = '3.0.1';
 
 async function createRelease() {
   console.log(`--- Iniciando processo de release v${VERSION} ---`);
@@ -43,8 +43,8 @@ async function createRelease() {
   console.log('Criando Release oficial no GitHub...');
   const releaseData = {
     tag_name: `v${VERSION}`,
-    name: `v${VERSION} - AI Analysis & Network Diagnostics`,
-    body: `## Portal SSH v3.0.0 - Salto para a Inteligência Artificial\n\nEste é um release major que introduz funcionalidades avançadas de diagnóstico de rede.\n\n### Principais Novidades:\n- **Analisador de Tráfego AI (PCAP)**: Upload e análise inteligente de capturas de pacotes.\n- **Integração OpenRouter**: Suporte a modelos como Gemini 2.0 e Grok para diagnósticos especializados em Telecom (SIP, RTP, HTTP).\n- **Nova Interface Premium**: Design aprimorado com foco em usabilidade e performance.\n\n---\n*Release gerado automaticamente via Antigravity AI.*`,
+    name: `v${VERSION} - Premium UI Hotfix & UX Refinement`,
+    body: `## Portal SSH v3.0.1 - Refinamento Estético e UX\n\nEste hotfix traz uma série de melhorias visuais para as novas funcionalidades de IA.\n\n### Melhorias:\n- **Premium UI**: Padronização de cores, glassmorphism e botões com efeitos de brilho.\n- **Scanner PCAP**: Redesign da zona de upload com feedback visual aprimorado.\n- **Relatórios de IA**: Nova visualização de diagnóstico com tipografia monoespaçada e layout de terminal.\n- **Estabilidade**: Correção de imports não utilizados e dependências faltantes no build.\n\n---\n*Release gerado automaticamente via Antigravity AI.*`,
     draft: false,
     prerelease: false
   };

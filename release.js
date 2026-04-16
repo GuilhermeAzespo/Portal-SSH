@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 // Configuration
 const TOKEN = process.env.GITHUB_TOKEN;
 const REPO = 'GuilhermeAzespo/Portal-SSH';
-const VERSION = '3.0.5';
+const VERSION = '3.0.6';
 
 async function createRelease() {
   console.log(`--- Iniciando processo de release v${VERSION} ---`);
@@ -24,7 +24,7 @@ async function createRelease() {
   try {
     console.log('Commitando e criando tag...');
     execSync('git add .');
-    execSync(`git commit -m "chore: release v${VERSION} - Fix OTA auto-update loop"`);
+    execSync(`git commit -m "fix: remove unused import breaking docker build"`);
     execSync(`git tag -a v${VERSION} -m "Release v${VERSION}"`);
     
     console.log('Configurando autenticação remota...');
@@ -43,8 +43,8 @@ async function createRelease() {
   console.log('Criando Release oficial no GitHub...');
   const releaseData = {
     tag_name: `v${VERSION}`,
-    name: `v${VERSION} - OTA Auto-Recovery Hotfix`,
-    body: `## Portal SSH v3.0.4 - OTA Recuperação Automática\n\nEste hotfix corrige o "loop" infinito na tela de atualizações do sistema.\n\n### Melhorias:\n- **Auto-Recovery**: O sistema agora detecta quando os containers foram reiniciados via OTA e marca a atualização como concluída imediatamente assim que o backend retorna online.\n- **Experiência de Atualização**: Resolve a falha visual onde a tela ficava preza em "Aguardando rebuild dos containers..." indefinidamente após o êxito real do processo de reconstrução do Docker.\n\n---\n*Release gerado automaticamente via Antigravity AI.*`,
+    name: `v${VERSION} - Build Hotfix`,
+    body: `## Portal SSH v3.0.6 - Hotfix Compilação\n\nEste patch corrige um problema onde a atualização via código quebrou o processo de build do TypeScript.\n\n### Correções:\n- **Build**: Removido import não utilizado \`useRef\` que causava erro TS6133 no cliente.\n\n---\n*Release gerado automaticamente via Antigravity AI.*`,
     draft: false,
     prerelease: false
   };

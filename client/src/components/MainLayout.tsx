@@ -1,7 +1,7 @@
 import { useState, useContext } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
-import { LayoutDashboard, Users, Shield, Settings, LogOut, ChevronDown, ChevronUp , Layers, Network, BrainCircuit} from 'lucide-react';
+import { LayoutDashboard, Users, Shield, Settings, LogOut, ChevronDown, ChevronUp , Layers, Network} from 'lucide-react';
 
 export const MainLayout = () => {
   const { user, logout } = useContext(AuthContext);

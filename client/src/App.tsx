@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Login, Dashboard, Workspace, Users, Permissions, Sectors, Settings } from './pages';
+import { Login, Dashboard, Workspace, Users, Permissions, Sectors, Settings, AiSettings, PcapAnalyzer } from './pages';
 import { PrivateRoute } from './components/PrivateRoute';
 import { MainLayout } from './components/MainLayout';
 
@@ -15,6 +15,8 @@ function App() {
           <Route path="permissions" element={<Permissions />} />
           <Route path="sectors" element={<Sectors />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="ai-settings" element={<AiSettings />} />
+          <Route path="pcap" element={<PcapAnalyzer />} />
           <Route index element={<Navigate to="/dashboard" replace />} />
         </Route>
         

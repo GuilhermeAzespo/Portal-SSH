@@ -56,6 +56,24 @@ export const db = new sqlite3.Database(dbPath, (err) => {
         FOREIGN KEY (sectorId) REFERENCES sectors(id) ON DELETE CASCADE
       )`);
 
+      // 5. Settings table
+      db.run(`CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )`, () => {
+        // Seed default AI settings if not exist
+        db.get("SELECT value FROM settings WHERE key = 'openrouter_key'", (err, row) => {
+          if (!row) {
+            db.run("INSERT INTO settings (key, value) VALUES ('openrouter_key', '')");
+          }
+        });
+        db.get("SELECT value FROM settings WHERE key = 'ai_model'", (err, row) => {
+          if (!row) {
+            db.run("INSERT INTO settings (key, value) VALUES ('ai_model', 'google/gemini-2.0-flash-001')");
+          }
+        });
+      });
+
       // Seed Roles & Run Migrations
       db.get("SELECT COUNT(*) AS count FROM roles", (err, row: any) => {
         if (row && row.count === 0) {

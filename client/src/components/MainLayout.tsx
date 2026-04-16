@@ -1,7 +1,7 @@
 import { useState, useContext } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
-import { LayoutDashboard, Users, Shield, Settings, LogOut, ChevronDown, ChevronUp , Layers} from 'lucide-react';
+import { LayoutDashboard, Users, Shield, Settings, LogOut, ChevronDown, ChevronUp , Layers, Network, BrainCircuit} from 'lucide-react';
 
 export const MainLayout = () => {
   const { user, logout } = useContext(AuthContext);
@@ -19,10 +19,12 @@ export const MainLayout = () => {
     { path: '/sectors', label: 'Setores', icon: Layers, permission: 'sectors.view' },
     { path: '/users', label: 'Usuários', icon: Users, permission: 'users.view' },
     { path: '/permissions', label: 'Permissões', icon: Shield, permission: 'permissions.manage' },
+    { path: '/pcap', label: 'Analisador PCAP', icon: Network, permission: 'dashboard.view' },
     {
       path: '/settings', label: 'Configurações', icon: Settings, permission: 'settings.view',
       children: [
-        { path: '/settings', label: 'Atualizações' }
+        { path: '/settings', label: 'Atualizações' },
+        { path: '/ai-settings', label: 'Inteligência Artificial' }
       ]
     },
   ];

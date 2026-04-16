@@ -13,7 +13,7 @@ export const triggerUpdate = (req: Request, res: Response) => {
 
   // Send immediate response to client
   res.json({
-    message: 'Processo de atualização iniciado. O servidor será reiniciado em instantes.',
+    message: 'Processo de atualização iniciado. O servidor reconstruirá os containers em segundo plano.',
     status: 'updating'
   });
 
@@ -23,24 +23,50 @@ export const triggerUpdate = (req: Request, res: Response) => {
 #!/bin/sh
 LOG="${logPath}"
 
-echo "--- git pull start ---" >> "$LOG" 2>&1
+log_msg() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG" 2>&1
+}
+
+log_msg "--- starting update sequence ---"
+
+# Detect docker compose command
+if docker compose version >/dev/null 2>&1; then
+  DOCKER_CMD="docker compose"
+  log_msg "Detected: 'docker compose'"
+elif docker-compose version >/dev/null 2>&1; then
+  DOCKER_CMD="docker-compose"
+  log_msg "Detected: 'docker-compose'"
+else
+  log_msg "ERROR: Neither 'docker compose' nor 'docker-compose' found in PATH."
+  exit 1
+fi
+
+log_msg "--- git pull start ---"
 git config --global --add safe.directory "${projectRoot}" >> "$LOG" 2>&1
-cd "${projectRoot}" || { echo "ERROR: cd failed" >> "$LOG" 2>&1; exit 1; }
-git pull >> "$LOG" 2>&1
-echo "--- git pull done ---" >> "$LOG" 2>&1
+cd "${projectRoot}" || { log_msg "ERROR: cd to ${projectRoot} failed"; exit 1; }
 
-echo "--- rebuilding portal-ssh-client container ---" >> "$LOG" 2>&1
-# -p portal-ssh   -> correct project name (avoids creating host_source-* containers)
-# build --no-cache -> forces fresh build even if source files unchanged on disk
-# up --no-deps    -> CRITICAL: do NOT touch the server container.
-#   Without this flag, Docker Compose resolves '.' in the volume mount as /app/host_source
-#   (container path) instead of /home/gui/Portal-SSH (host path), detecting a config
-#   difference and recreating the server, which then fails with SIGTERM.
-docker compose -p portal-ssh build --no-cache client server >> "$LOG" 2>&1
-docker compose -p portal-ssh up -d client server >> "$LOG" 2>&1
+# Try to pull, capturing common errors
+if ! git pull >> "$LOG" 2>&1; then
+  log_msg "ERROR: git pull failed. Check internet connection or repository permissions."
+  exit 1
+fi
+log_msg "--- git pull done ---"
 
+log_msg "--- rebuilding containers ---"
+# -p portal-ssh   -> correct project name
+# build --no-cache -> forces fresh build
+if ! $DOCKER_CMD -p portal-ssh build --no-cache client server >> "$LOG" 2>&1; then
+  log_msg "ERROR: Docker build failed. Check 'docker logs' for more details."
+  exit 1
+fi
 
-echo "--- update done at $(date) ---" >> "$LOG" 2>&1
+log_msg "--- restarting services ---"
+if ! $DOCKER_CMD -p portal-ssh up -d client server >> "$LOG" 2>&1; then
+  log_msg "ERROR: Docker up failed."
+  exit 1
+fi
+
+log_msg "--- update done at $(date) ---"
 `.trim();
 
     const scriptPath = '/app/db_data/do_update.sh';
@@ -49,7 +75,7 @@ echo "--- update done at $(date) ---" >> "$LOG" 2>&1
     const child = exec(`setsid sh ${scriptPath} </dev/null >>/dev/null 2>&1 &`);
     child.unref();
 
-    console.log('Update script dispatched (--no-deps, portal-ssh). Log:', logPath);
+    console.log('Update script dispatched. Log:', logPath);
   }, 500);
 };
 

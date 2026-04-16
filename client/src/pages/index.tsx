@@ -5,3 +5,5 @@ export { Users } from './Users';
 export { Permissions } from './Permissions';
 export { Sectors } from './Sectors';
 export { Settings } from './Settings';
+export { default as AiSettings } from './AiSettings';
+export { default as PcapAnalyzer } from './PcapAnalyzer';

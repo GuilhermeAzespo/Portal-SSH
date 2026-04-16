@@ -11,6 +11,8 @@ import userRoutes from './routes/userRoutes';
 import roleRoutes from './routes/roleRoutes';
 import updateRoutes from './routes/updateRoutes';
 import sectorRoutes from './routes/sectorRoutes';
+import settingsRoutes from './routes/settingsRoutes';
+import pcapRoutes from './routes/pcapRoutes';
 
 dotenv.config();
 
@@ -26,6 +28,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/update', updateRoutes);
 app.use('/api/sectors', sectorRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/pcap', pcapRoutes);
 
 import { startSSHConnection, activeSessions, getActiveSessionsList, setBroadcastCallback } from './services/sshService';
 const io = new Server(server, {

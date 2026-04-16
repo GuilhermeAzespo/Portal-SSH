@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 // Configuration
 const TOKEN = process.env.GITHUB_TOKEN;
 const REPO = 'GuilhermeAzespo/Portal-SSH';
-const VERSION = '3.0.6';
+const VERSION = '3.0.7';
 
 async function createRelease() {
   console.log(`--- Iniciando processo de release v${VERSION} ---`);
@@ -24,7 +24,7 @@ async function createRelease() {
   try {
     console.log('Commitando e criando tag...');
     execSync('git add .');
-    execSync(`git commit -m "fix: remove unused import breaking docker build"`);
+    execSync(`git commit -m "fix(ai): resolve 502 bad gateway and improve aiService logging"`);
     execSync(`git tag -a v${VERSION} -m "Release v${VERSION}"`);
     
     console.log('Configurando autenticação remota...');
@@ -43,8 +43,8 @@ async function createRelease() {
   console.log('Criando Release oficial no GitHub...');
   const releaseData = {
     tag_name: `v${VERSION}`,
-    name: `v${VERSION} - Build Hotfix`,
-    body: `## Portal SSH v3.0.6 - Hotfix Compilação\n\nEste patch corrige um problema onde a atualização via código quebrou o processo de build do TypeScript.\n\n### Correções:\n- **Build**: Removido import não utilizado \`useRef\` que causava erro TS6133 no cliente.\n\n---\n*Release gerado automaticamente via Antigravity AI.*`,
+    name: `v${VERSION} - AI Error Handling & Observability Hotfix`,
+    body: `## Portal SSH v3.0.7 - AI Robustness Hotfix\n\nEste patch corrige problemas com a análise PCAP via IA e erros de gateway (502).\n\n### Correções:\n- **AI Service**: Refatorado uso do banco de dados com async/await e inserido melhor propagação de erros de rede.\n- **Docker**: Ajustada instabilidade no nginx container setup e logs de diagnóstico.`,
     draft: false,
     prerelease: false
   };

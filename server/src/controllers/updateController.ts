@@ -55,12 +55,12 @@ log_msg "--- git pull done ---"
 log_msg "--- rebuilding containers ---"
 # -p portal-ssh   -> correct project name
 # build --no-cache -> forces fresh build
-if ! $DOCKER_CMD -p portal-ssh build --no-cache client server >> "$LOG" 2>&1; then
+if ! $DOCKER_CMD -p portal-ssh build client server >> "$LOG" 2>&1; then
   log_msg "ERROR: Docker build failed. Check 'docker logs' for more details."
   exit 1
 fi
 
-log_msg "--- restarting services ---"
+log_msg "--- restarting services (suicide restart initiated) ---"
 if ! $DOCKER_CMD -p portal-ssh up -d client server >> "$LOG" 2>&1; then
   log_msg "ERROR: Docker up failed."
   exit 1

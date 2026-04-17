@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 // Configuration
 const TOKEN = process.env.GITHUB_TOKEN;
 const REPO = 'GuilhermeAzespo/Portal-SSH';
-const VERSION = '3.0.9';
+const VERSION = '3.1.0';
 
 async function createRelease() {
   console.log(`--- Iniciando processo de release v${VERSION} ---`);
@@ -24,7 +24,7 @@ async function createRelease() {
   try {
     console.log('Commitando e criando tag...');
     execSync('git add .');
-    execSync(`git commit -m "fix(nginx): increase max body size to allow 50mb pcap uploads"`);
+    execSync(`git commit -m "fix(pcap): properly parse linux sll and vlan link-layer headers"`);
     execSync(`git tag -a v${VERSION} -m "Release v${VERSION}"`);
     
     console.log('Configurando autenticação remota...');
@@ -43,8 +43,8 @@ async function createRelease() {
   console.log('Criando Release oficial no GitHub...');
   const releaseData = {
     tag_name: `v${VERSION}`,
-    name: `v${VERSION} - Nginx PCAP Payload Fix`,
-    body: `## Portal SSH v3.0.9 - Upload Hotfix\n\nEste patch corrige um problema onde o proxy Nginx bloqueava preventivamente o envio de arquivos PCAP com a mensagem de erro 413 (Payload Too Large).\n\n### Correções:\n- **Nginx Proxy**: Incrementado diretiva \`client_max_body_size\` para \`50M\`.\n- **Frontend**: Mensagens de erro adaptadas para exibir amigavelmente o limite de tamanho do PCAP.`,
+    name: `v${VERSION} - PCAP Parsing Accuracy`,
+    body: `## Portal SSH v3.1.0 - PCAP Parsing Accuracy\n\nEste release foca em corrigir problemas de offset que causavam com que o Explorador de Fluxos deixasse de exibir os fluxos devido a falsos positivos em capturas geradas no modo Linux "any" interface.\n\n### Correções:\n- **Parser**: Suporte a leitura correta de offsets IP provenientes de capturas SLL (Linux Cooked Capture), Null Loopback e Headers VLAN, garantindo que portas e fluxos originais sejam mantidos pela IA.`,
     draft: false,
     prerelease: false
   };

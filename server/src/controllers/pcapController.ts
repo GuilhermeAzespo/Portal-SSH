@@ -45,25 +45,52 @@ export const analyzePcap = async (req: Request, res: Response) => {
     errorsDetected: []
   };
 
+  let linkLayerOffset = 14;
+
+  parser.on('globalHeader', (header: any) => {
+    // 1=Ethernet, 113=SLL, 12=Raw, 14=Raw IPv4
+    if (header.network === 113) linkLayerOffset = 16;
+    else if (header.network === 0) linkLayerOffset = 4;
+    else if (header.network === 101 || header.network === 12 || header.network === 14) linkLayerOffset = 0;
+  });
+
   parser.on('packet', (packet: any) => {
     summary.totalPackets++;
-    // ... rest of packet parsing logic remains same ...
     const data = packet.data;
-    if (data.length < 34) return; 
+    if (data.length < linkLayerOffset + 20) return; 
 
-    const ethType = data.readUInt16BE(12);
-    if (ethType !== 0x0800) return;
+    let ipOffset = linkLayerOffset;
+    
+    // Identificar offset do IPv4 com base no cabeçalho Link-Layer
+    if (linkLayerOffset === 14) {
+      let ethType = data.readUInt16BE(12);
+      if (ethType === 0x8100) { // Tratamento para VLAN 802.1Q
+        ethType = data.readUInt16BE(16);
+        ipOffset = 18;
+      }
+      if (ethType !== 0x0800) return; 
+    } else if (linkLayerOffset === 16) { // Linux SLL
+      const ethType = data.readUInt16BE(14);
+      if (ethType !== 0x0800) return;
+    } else if (linkLayerOffset === 4) { // Loopback Null
+      const family = data.readUInt32LE(0);
+      if (family !== 2 && family !== 30) return;
+    }
 
-    const ipProto = data[23];
-    const srcIp = `${data[26]}.${data[27]}.${data[28]}.${data[29]}`;
-    const dstIp = `${data[30]}.${data[31]}.${data[32]}.${data[33]}`;
+    // Validar se é realmente um pacote IPv4
+    const ipVersion = data[ipOffset] >> 4;
+    if (ipVersion !== 4) return;
+
+    const ipProto = data[ipOffset + 9];
+    const srcIp = `${data[ipOffset + 12]}.${data[ipOffset + 13]}.${data[ipOffset + 14]}.${data[ipOffset + 15]}`;
+    const dstIp = `${data[ipOffset + 16]}.${data[ipOffset + 17]}.${data[ipOffset + 18]}.${data[ipOffset + 19]}`;
     
     const protoName = ipProto === 6 ? 'TCP' : ipProto === 17 ? 'UDP' : `Proto-${ipProto}`;
     summary.protocols[protoName] = (summary.protocols[protoName] || 0) + 1;
 
     if (ipProto === 6 || ipProto === 17) {
-      const srcPort = data.readUInt16BE(34);
-      const dstPort = data.readUInt16BE(36);
+      const srcPort = data.readUInt16BE(ipOffset + (data[ipOffset] & 0x0f) * 4);
+      const dstPort = data.readUInt16BE(ipOffset + (data[ipOffset] & 0x0f) * 4 + 2);
       const flowKey = `${srcIp}:${srcPort}->${dstIp}:${dstPort}`;
       
       if (!summary.flows[flowKey]) {
@@ -71,7 +98,11 @@ export const analyzePcap = async (req: Request, res: Response) => {
       }
       summary.flows[flowKey].packets++;
 
-      const appDataOffset = ipProto === 6 ? 34 + (data[46] >> 4) * 4 : 34 + 8;
+      // Payload scanning
+      const headerLen = (data[ipOffset] & 0x0F) * 4;
+      const transportOffset = ipOffset + headerLen;
+      const appDataOffset = ipProto === 6 ? transportOffset + ((data[transportOffset + 12] >> 4) * 4) : transportOffset + 8;
+      
       if (data.length > appDataOffset) {
         const payload = data.toString('utf8', appDataOffset).substring(0, 500);
         

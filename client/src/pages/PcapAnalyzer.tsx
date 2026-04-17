@@ -77,8 +77,10 @@ export default function PcapAnalyzer() {
       });
       setResult(response.data);
     } catch (err: any) {
-      if (err.message === 'Network Error' || err.code === 'ERR_NETWORK') {
-         setError('Erro de Rede. Se o arquivo for muito grande, Nginx pode ter bloqueado (client_max_body_size). Tente um arquivo menor.');
+      if (err.response?.status === 413) {
+         setError('Erro de Rede: O arquivo excede o limite de tamanho permitido pelo servidor (50MB). Tente um arquivo menor.');
+      } else if (err.message === 'Network Error' || err.code === 'ERR_NETWORK') {
+         setError('Erro de Rede ou falha na conexão. Se o arquivo for muito grande, a rota pode ter caído.');
       } else if (err.code === 'ECONNABORTED') {
          setError('Tempo limite esgotado. A análise da IA demorou mais que o esperado (Rate Limit do OpenRouter).');
       } else {

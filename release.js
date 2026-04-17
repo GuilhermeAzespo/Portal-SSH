@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 // Configuration
 const TOKEN = process.env.GITHUB_TOKEN;
 const REPO = 'GuilhermeAzespo/Portal-SSH';
-const VERSION = '3.0.8';
+const VERSION = '3.0.9';
 
 async function createRelease() {
   console.log(`--- Iniciando processo de release v${VERSION} ---`);
@@ -24,7 +24,7 @@ async function createRelease() {
   try {
     console.log('Commitando e criando tag...');
     execSync('git add .');
-    execSync(`git commit -m "fix(ota): resolve docker build hang on exporting layers during system update"`);
+    execSync(`git commit -m "fix(nginx): increase max body size to allow 50mb pcap uploads"`);
     execSync(`git tag -a v${VERSION} -m "Release v${VERSION}"`);
     
     console.log('Configurando autenticação remota...');
@@ -43,8 +43,8 @@ async function createRelease() {
   console.log('Criando Release oficial no GitHub...');
   const releaseData = {
     tag_name: `v${VERSION}`,
-    name: `v${VERSION} - OTA Update Fix`,
-    body: `## Portal SSH v3.0.8 - OTA Hotfix\n\nEste patch corrige o problema de travamento das atualizações O.T.A através do painel.\n\n### Correções:\n- **OTA Updater**: Adicionado parâmetros \`BUILDX_NO_DEFAULT_ATTESTATIONS\` no script de update para evitar travamentos de \`exporting layers\` do Docker Daemon.`,
+    name: `v${VERSION} - Nginx PCAP Payload Fix`,
+    body: `## Portal SSH v3.0.9 - Upload Hotfix\n\nEste patch corrige um problema onde o proxy Nginx bloqueava preventivamente o envio de arquivos PCAP com a mensagem de erro 413 (Payload Too Large).\n\n### Correções:\n- **Nginx Proxy**: Incrementado diretiva \`client_max_body_size\` para \`50M\`.\n- **Frontend**: Mensagens de erro adaptadas para exibir amigavelmente o limite de tamanho do PCAP.`,
     draft: false,
     prerelease: false
   };

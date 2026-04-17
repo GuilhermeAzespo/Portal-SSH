@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 // Configuration
 const TOKEN = process.env.GITHUB_TOKEN;
 const REPO = 'GuilhermeAzespo/Portal-SSH';
-const VERSION = '3.0.7';
+const VERSION = '3.0.8';
 
 async function createRelease() {
   console.log(`--- Iniciando processo de release v${VERSION} ---`);
@@ -24,7 +24,7 @@ async function createRelease() {
   try {
     console.log('Commitando e criando tag...');
     execSync('git add .');
-    execSync(`git commit -m "fix(ai): resolve 502 bad gateway and improve aiService logging"`);
+    execSync(`git commit -m "fix(ota): resolve docker build hang on exporting layers during system update"`);
     execSync(`git tag -a v${VERSION} -m "Release v${VERSION}"`);
     
     console.log('Configurando autenticação remota...');
@@ -43,8 +43,8 @@ async function createRelease() {
   console.log('Criando Release oficial no GitHub...');
   const releaseData = {
     tag_name: `v${VERSION}`,
-    name: `v${VERSION} - AI Error Handling & Observability Hotfix`,
-    body: `## Portal SSH v3.0.7 - AI Robustness Hotfix\n\nEste patch corrige problemas com a análise PCAP via IA e erros de gateway (502).\n\n### Correções:\n- **AI Service**: Refatorado uso do banco de dados com async/await e inserido melhor propagação de erros de rede.\n- **Docker**: Ajustada instabilidade no nginx container setup e logs de diagnóstico.`,
+    name: `v${VERSION} - OTA Update Fix`,
+    body: `## Portal SSH v3.0.8 - OTA Hotfix\n\nEste patch corrige o problema de travamento das atualizações O.T.A através do painel.\n\n### Correções:\n- **OTA Updater**: Adicionado parâmetros \`BUILDX_NO_DEFAULT_ATTESTATIONS\` no script de update para evitar travamentos de \`exporting layers\` do Docker Daemon.`,
     draft: false,
     prerelease: false
   };

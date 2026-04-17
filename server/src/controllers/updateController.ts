@@ -66,9 +66,13 @@ fi
 log_msg "--- git pull done ---"
 
 log_msg "--- rebuilding containers ---"
+# Fix to prevent docker buildx from hanging at 'exporting layers' over mounted socket
+export BUILDX_NO_DEFAULT_ATTESTATIONS=1
+export DOCKER_BUILDKIT=1
+
 # -p portal-ssh   -> correct project name
 # build --no-cache -> forces fresh build
-if ! $DOCKER_CMD -p portal-ssh build client server >> "$LOG" 2>&1; then
+if ! BUILDX_NO_DEFAULT_ATTESTATIONS=1 $DOCKER_CMD -p portal-ssh build client server >> "$LOG" 2>&1; then
   log_msg "ERROR: Docker build failed. Check 'docker logs' for more details."
   exit 1
 fi

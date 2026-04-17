@@ -53,8 +53,15 @@ export const analyzePcap = async (req: Request, res: Response) => {
 
   let linkLayerOffset = 14; 
 
+  let packetCounter = 0;
   const processPacketData = (data: Buffer, currentLinkOffset: number) => {
     summary.totalPackets++;
+    packetCounter++;
+    
+    if (packetCounter % 10000 === 0) {
+      console.log(`[PCAP CONTROLLER] Progress: ${packetCounter} packets processed...`);
+    }
+
     if (data.length < currentLinkOffset + 20) return; 
 
     let ipOffset = currentLinkOffset;

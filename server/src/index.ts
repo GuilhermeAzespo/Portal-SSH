@@ -190,6 +190,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 const PORT = process.env.PORT || 4000;
+server.timeout = 300000; // 5 minutes timeout for large PCAP analysis
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });

@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 // Configuration
 const TOKEN = process.env.GITHUB_TOKEN;
 const REPO = 'GuilhermeAzespo/Portal-SSH';
-const VERSION = '3.2.1';
+const VERSION = '3.2.2';
 
 async function createRelease() {
   console.log(`--- Iniciando processo de release v${VERSION} ---`);
@@ -24,7 +24,7 @@ async function createRelease() {
   try {
     console.log('Commitando e criando tag...');
     execSync('git add .');
-    execSync(`git commit -m "fix(pcap): add native pcapng support and fix concurrency response bug"`);
+    execSync(`git commit -m "fix(timeout): increase nginx and server timeouts to 300s for large pcap files"`);
     execSync(`git tag -a v${VERSION} -m "Release v${VERSION}"`);
     
     console.log('Configurando autenticação remota...');
@@ -43,8 +43,8 @@ async function createRelease() {
   console.log('Criando Release oficial no GitHub...');
   const releaseData = {
     tag_name: `v${VERSION}`,
-    name: `v${VERSION} - Native PCAPNG Support`,
-    body: `## Portal SSH v3.2.1 - Suporte Nativo a PCAPNG\n\nEste release resolve a incompatibilidade com capturas de rede modernas do Wireshark e estabiliza o motor de análise.\n\n### Melhorias:\n- **Suporte PCAPNG**: Adicionado suporte nativo a arquivos .pcapng (Magic Number 0a0d0d0a), permitindo uploads diretos sem necessidade de conversão prévia.\n- **Estabilização**: Corrigido bug de concorrência (\`ERR_HTTP_HEADERS_SENT\`) que derrubava o servidor em caso de erros de parseamento.\n- **Refatoração**: Motor de processamento unificado para lidar com PCAP clássico e PCAPNG com a mesma precisão de offsets.`,
+    name: `v${VERSION} - Large PCAP Support (Timeout Fix)`,
+    body: `## Portal SSH v3.2.2 - Suporte a Grandes Arquivos (Correção de Timeout)\n\nEste release foca em permitir a análise de arquivos de tráfego volumosos (~100k pacotes) sem quedas de conexão.\n\n### Melhorias:\n- **Nginx Timeout**: Aumentado \`proxy_read_timeout\` para 300s (5 minutos).\n- **Server Timeout**: Configurado timeout do servidor Node.js para 300s, prevenindo cortes prematuros em análises pesadas.\n- **Logs de Progresso**: Adicionado rastreamento de progresso no console do servidor para arquivos PCAP grandes.`,
     draft: false,
     prerelease: false
   };

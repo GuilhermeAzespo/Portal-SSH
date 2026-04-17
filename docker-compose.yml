@@ -8,10 +8,6 @@ services:
     volumes:
       # Mantém o banco de dados persistente em um Volume isolado do Docker
       - sqlite_data:/app/db_data
-      # Acesso ao Socket do Docker para permitir auto-atualização
-      - /var/run/docker.sock:/var/run/docker.sock
-      # Mapeia a raiz do projeto no host para o container poder rodar git pull
-      - .:/app/host_source
     user: root
     environment:
       - NODE_ENV=production
@@ -25,6 +21,15 @@ services:
       - "80:80"
     depends_on:
       - server
+    restart: always
+
+  updater:
+    build:
+      context: ./updater
+    volumes:
+      - sqlite_data:/app/db_data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/app/host_source
     restart: always
 
 volumes:

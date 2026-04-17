@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 // Configuration
 const TOKEN = process.env.GITHUB_TOKEN;
 const REPO = 'GuilhermeAzespo/Portal-SSH';
-const VERSION = '3.1.0';
+const VERSION = '3.2.0';
 
 async function createRelease() {
   console.log(`--- Iniciando processo de release v${VERSION} ---`);
@@ -24,7 +24,7 @@ async function createRelease() {
   try {
     console.log('Commitando e criando tag...');
     execSync('git add .');
-    execSync(`git commit -m "fix(pcap): properly parse linux sll and vlan link-layer headers"`);
+    execSync(`git commit -m "feat(ota): implementation of autonomous updater module to prevent suicide restarts"`);
     execSync(`git tag -a v${VERSION} -m "Release v${VERSION}"`);
     
     console.log('Configurando autenticação remota...');
@@ -43,8 +43,8 @@ async function createRelease() {
   console.log('Criando Release oficial no GitHub...');
   const releaseData = {
     tag_name: `v${VERSION}`,
-    name: `v${VERSION} - PCAP Parsing Accuracy`,
-    body: `## Portal SSH v3.1.0 - PCAP Parsing Accuracy\n\nEste release foca em corrigir problemas de offset que causavam com que o Explorador de Fluxos deixasse de exibir os fluxos devido a falsos positivos em capturas geradas no modo Linux "any" interface.\n\n### Correções:\n- **Parser**: Suporte a leitura correta de offsets IP provenientes de capturas SLL (Linux Cooked Capture), Null Loopback e Headers VLAN, garantindo que portas e fluxos originais sejam mantidos pela IA.`,
+    name: `v${VERSION} - Independent Updater Module`,
+    body: `## Portal SSH v3.2.0 - Arquitetura de Atualização Independente\n\nEste release traz uma mudança drástica de arquitetura no painel para estabilizar o versionamento O.T.A.\n\n### Melhorias:\n- **Módulo Updater Desacoplado**: O sistema agora conta com um container extra exclusivo (\`updater\`) para escutar, reagir e gerenciar a atualização do Server e Client. Isso previne o congelamento total que ocorria antes quando o Node.js acionava o \`docker compose\` nele próprio.\n- **Segurança de Servidor**: A instalação do Docker CLI no \`portal-ssh-server\` foi permanentemente removida.`,
     draft: false,
     prerelease: false
   };

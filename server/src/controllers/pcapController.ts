@@ -3,6 +3,7 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import pcap from 'pcap-parser';
+import PCAPNGParser from 'pcap-ng-parser';
 import { analyzeWithAI } from '../services/aiService';
 
 // Configure multer for file uploads
@@ -30,11 +31,16 @@ export const analyzePcap = async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Nenhum arquivo enviado' });
   }
 
+  const filePath = req.file.path;
   console.log(`[PCAP CONTROLLER] Starting analysis of file: ${req.file.originalname} (${req.file.size} bytes)`);
 
-  const filePath = req.file.path;
-  const parser = pcap.parse(filePath);
-  
+  let responded = false;
+  const sendResponse = (status: number, data: any) => {
+    if (responded) return;
+    responded = true;
+    res.status(status).json(data);
+  };
+
   const summary: any = {
     fileName: req.file.originalname,
     totalPackets: 0,
@@ -45,42 +51,37 @@ export const analyzePcap = async (req: Request, res: Response) => {
     errorsDetected: []
   };
 
-  let linkLayerOffset = 14;
+  let linkLayerOffset = 14; 
 
-  parser.on('globalHeader', (header: any) => {
-    // 1=Ethernet, 113=SLL, 12=Raw, 14=Raw IPv4
-    if (header.network === 113) linkLayerOffset = 16;
-    else if (header.network === 0) linkLayerOffset = 4;
-    else if (header.network === 101 || header.network === 12 || header.network === 14) linkLayerOffset = 0;
-  });
-
-  parser.on('packet', (packet: any) => {
+  const processPacketData = (data: Buffer, currentLinkOffset: number) => {
     summary.totalPackets++;
-    const data = packet.data;
-    if (data.length < linkLayerOffset + 20) return; 
+    if (data.length < currentLinkOffset + 20) return; 
 
-    let ipOffset = linkLayerOffset;
+    let ipOffset = currentLinkOffset;
     
     // Identificar offset do IPv4 com base no cabeçalho Link-Layer
-    if (linkLayerOffset === 14) {
+    if (currentLinkOffset === 14) {
       let ethType = data.readUInt16BE(12);
       if (ethType === 0x8100) { // Tratamento para VLAN 802.1Q
+        if (data.length < 18) return;
         ethType = data.readUInt16BE(16);
         ipOffset = 18;
       }
       if (ethType !== 0x0800) return; 
-    } else if (linkLayerOffset === 16) { // Linux SLL
+    } else if (currentLinkOffset === 16) { // Linux SLL
       const ethType = data.readUInt16BE(14);
       if (ethType !== 0x0800) return;
-    } else if (linkLayerOffset === 4) { // Loopback Null
+    } else if (currentLinkOffset === 4) { // Loopback Null
       const family = data.readUInt32LE(0);
       if (family !== 2 && family !== 30) return;
     }
 
     // Validar se é realmente um pacote IPv4
+    if (data.length <= ipOffset) return;
     const ipVersion = data[ipOffset] >> 4;
     if (ipVersion !== 4) return;
 
+    if (data.length < ipOffset + 20) return;
     const ipProto = data[ipOffset + 9];
     const srcIp = `${data[ipOffset + 12]}.${data[ipOffset + 13]}.${data[ipOffset + 14]}.${data[ipOffset + 15]}`;
     const dstIp = `${data[ipOffset + 16]}.${data[ipOffset + 17]}.${data[ipOffset + 18]}.${data[ipOffset + 19]}`;
@@ -89,8 +90,11 @@ export const analyzePcap = async (req: Request, res: Response) => {
     summary.protocols[protoName] = (summary.protocols[protoName] || 0) + 1;
 
     if (ipProto === 6 || ipProto === 17) {
-      const srcPort = data.readUInt16BE(ipOffset + (data[ipOffset] & 0x0f) * 4);
-      const dstPort = data.readUInt16BE(ipOffset + (data[ipOffset] & 0x0f) * 4 + 2);
+      const ihl = (data[ipOffset] & 0x0f) * 4;
+      if (data.length < ipOffset + ihl + 4) return;
+      
+      const srcPort = data.readUInt16BE(ipOffset + ihl);
+      const dstPort = data.readUInt16BE(ipOffset + ihl + 2);
       const flowKey = `${srcIp}:${srcPort}->${dstIp}:${dstPort}`;
       
       if (!summary.flows[flowKey]) {
@@ -99,7 +103,7 @@ export const analyzePcap = async (req: Request, res: Response) => {
       summary.flows[flowKey].packets++;
 
       // Payload scanning
-      const headerLen = (data[ipOffset] & 0x0F) * 4;
+      const headerLen = ihl;
       const transportOffset = ipOffset + headerLen;
       const appDataOffset = ipProto === 6 ? transportOffset + ((data[transportOffset + 12] >> 4) * 4) : transportOffset + 8;
       
@@ -122,9 +126,9 @@ export const analyzePcap = async (req: Request, res: Response) => {
         }
       }
     }
-  });
+  };
 
-  parser.on('end', async () => {
+  const finalizeAnalysis = async () => {
     console.log(`[PCAP CONTROLLER] Parsing completed. Total packets: ${summary.totalPackets}`);
     try {
       const topFlows = Object.entries(summary.flows)
@@ -145,20 +149,82 @@ export const analyzePcap = async (req: Request, res: Response) => {
       
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
-      res.json({
+      sendResponse(200, {
         summary: aiSummary,
         analysis: aiAnalysis
       });
     } catch (error: any) {
       console.error(`[PCAP CONTROLLER] AI Analysis failed:`, error.message);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      res.status(500).json({ error: error.message || 'Erro na análise de IA' });
+      sendResponse(500, { error: error.message || 'Erro na análise de IA' });
     }
-  });
+  };
 
-  parser.on('error', (err: any) => {
-    console.error(`[PCAP CONTROLLER] Parser error:`, err);
+  try {
+    // Detectar formato (Magic Number)
+    const buffer = Buffer.alloc(4);
+    const fd = fs.openSync(filePath, 'r');
+    fs.readSync(fd, buffer, 0, 4, 0);
+    fs.closeSync(fd);
+
+    const magic = buffer.toString('hex');
+    console.log(`[PCAP CONTROLLER] Magic number detected: ${magic}`);
+
+    if (magic === '0a0d0d0a') {
+      console.log(`[PCAP CONTROLLER] Handling as PCAPNG...`);
+      const pcapNgParser = new PCAPNGParser();
+      
+      fs.createReadStream(filePath)
+        .pipe(pcapNgParser)
+        .on('interface', (info: any) => {
+          // Detect link layer offset for PCAPNG
+          const linkType = info.linkType;
+          if (linkType === 113) linkLayerOffset = 16;
+          else if (linkType === 0) linkLayerOffset = 4;
+          else if (linkType === 101 || linkType === 12 || linkType === 14) linkLayerOffset = 0;
+          else linkLayerOffset = 14;
+        })
+        .on('data', (packet: any) => {
+          processPacketData(packet.data, linkLayerOffset);
+        })
+        .on('end', () => {
+          finalizeAnalysis();
+        })
+        .on('error', (err: any) => {
+          console.error(`[PCAP CONTROLLER] PCAPNG Parser error:`, err);
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          sendResponse(500, { error: 'Falha ao processar arquivo PCAPNG. Verifique se o arquivo não está corrompido.' });
+        });
+
+    } else {
+      // Formato PCAP Clássico
+      const parser = pcap.parse(filePath);
+      
+      parser.on('globalHeader', (header: any) => {
+        if (header.network === 113) linkLayerOffset = 16;
+        else if (header.network === 0) linkLayerOffset = 4;
+        else if (header.network === 101 || header.network === 12 || header.network === 14) linkLayerOffset = 0;
+        else linkLayerOffset = 14;
+      });
+
+      parser.on('packet', (packet: any) => {
+        processPacketData(packet.data, linkLayerOffset);
+      });
+
+      parser.on('end', () => {
+        finalizeAnalysis();
+      });
+
+      parser.on('error', (err: any) => {
+        console.error(`[PCAP CONTROLLER] Parser error:`, err);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        sendResponse(500, { error: 'Erro ao processar arquivo PCAP (possível arquivo corrompido ou formato inválido)' });
+      });
+    }
+  } catch (err: any) {
+    console.error(`[PCAP CONTROLLER] Execution error:`, err);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    res.status(500).json({ error: 'Erro ao processar arquivo PCAP (possível arquivo corrompido ou formato inválido)' });
-  });
+    sendResponse(500, { error: 'Erro interno ao iniciar processamento do PCAP' });
+  }
 };
+

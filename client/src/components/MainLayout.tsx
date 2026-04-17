@@ -2,6 +2,7 @@ import { useState, useContext } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import { LayoutDashboard, Users, Shield, Settings, LogOut, ChevronDown, ChevronUp , Layers, Network} from 'lucide-react';
+import pkg from '../../package.json';
 
 export const MainLayout = () => {
   const { user, logout } = useContext(AuthContext);
@@ -50,7 +51,7 @@ export const MainLayout = () => {
           <div className="sidebar-logo">{'>_'}</div>
           <div className="sidebar-brand">
             <h2 className="sidebar-title">Portal <span>SSH</span></h2>
-            <span className="sidebar-subtitle">2.3.9 · secure shell</span>
+            <span className="sidebar-subtitle">{pkg.version} · secure shell</span>
           </div>
         </div>
 

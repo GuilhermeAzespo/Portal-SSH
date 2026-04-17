@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 // Configuration
 const TOKEN = process.env.GITHUB_TOKEN;
 const REPO = 'GuilhermeAzespo/Portal-SSH';
-const VERSION = '3.2.0';
+const VERSION = '3.2.1';
 
 async function createRelease() {
   console.log(`--- Iniciando processo de release v${VERSION} ---`);
@@ -24,7 +24,7 @@ async function createRelease() {
   try {
     console.log('Commitando e criando tag...');
     execSync('git add .');
-    execSync(`git commit -m "feat(ota): implementation of autonomous updater module to prevent suicide restarts"`);
+    execSync(`git commit -m "fix(pcap): add native pcapng support and fix concurrency response bug"`);
     execSync(`git tag -a v${VERSION} -m "Release v${VERSION}"`);
     
     console.log('Configurando autenticação remota...');
@@ -43,8 +43,8 @@ async function createRelease() {
   console.log('Criando Release oficial no GitHub...');
   const releaseData = {
     tag_name: `v${VERSION}`,
-    name: `v${VERSION} - Independent Updater Module`,
-    body: `## Portal SSH v3.2.0 - Arquitetura de Atualização Independente\n\nEste release traz uma mudança drástica de arquitetura no painel para estabilizar o versionamento O.T.A.\n\n### Melhorias:\n- **Módulo Updater Desacoplado**: O sistema agora conta com um container extra exclusivo (\`updater\`) para escutar, reagir e gerenciar a atualização do Server e Client. Isso previne o congelamento total que ocorria antes quando o Node.js acionava o \`docker compose\` nele próprio.\n- **Segurança de Servidor**: A instalação do Docker CLI no \`portal-ssh-server\` foi permanentemente removida.`,
+    name: `v${VERSION} - Native PCAPNG Support`,
+    body: `## Portal SSH v3.2.1 - Suporte Nativo a PCAPNG\n\nEste release resolve a incompatibilidade com capturas de rede modernas do Wireshark e estabiliza o motor de análise.\n\n### Melhorias:\n- **Suporte PCAPNG**: Adicionado suporte nativo a arquivos .pcapng (Magic Number 0a0d0d0a), permitindo uploads diretos sem necessidade de conversão prévia.\n- **Estabilização**: Corrigido bug de concorrência (\`ERR_HTTP_HEADERS_SENT\`) que derrubava o servidor em caso de erros de parseamento.\n- **Refatoração**: Motor de processamento unificado para lidar com PCAP clássico e PCAPNG com a mesma precisão de offsets.`,
     draft: false,
     prerelease: false
   };
